@@ -68,14 +68,27 @@
       <form class="composer" id="composer">
         <div class="composer-box">
           <textarea id="chat-input" rows="2" placeholder="Tempel postingan diskusi di sini… (Enter untuk kirim, Shift+Enter baris baru)"></textarea>
-          <label class="effort" title="Kedalaman penalaran model (reasoning effort)">
-            <select id="chat-thinking">
-              <option value="off">Instant</option>
-              <option value="low">Low</option>
-              <option value="high" selected>High</option>
-              <option value="max">Max</option>
-            </select>
-          </label>
+          <div class="menu-wrap effort">
+            <button type="button" class="pill" data-menu-btn aria-haspopup="listbox" aria-expanded="false" title="Kedalaman penalaran model">
+              <span data-menu-label>High</span>
+              <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="menu hidden" data-menu-list role="listbox" aria-label="Reasoning effort">
+              <button type="button" class="menu-item" data-value="off" data-label="Instant" role="option">
+                <span><b>Instant</b><small>Tanpa reasoning — paling cepat</small></span><span class="check">✓</span>
+              </button>
+              <button type="button" class="menu-item" data-value="low" data-label="Low" role="option">
+                <span><b>Low</b><small>Reasoning singkat</small></span><span class="check">✓</span>
+              </button>
+              <button type="button" class="menu-item" data-value="high" data-label="High" role="option">
+                <span><b>High</b><small>Seimbang — setelan server</small></span><span class="check">✓</span>
+              </button>
+              <button type="button" class="menu-item" data-value="max" data-label="Max" role="option">
+                <span><b>Max</b><small>Penalaran terdalam, paling lambat</small></span><span class="check">✓</span>
+              </button>
+            </div>
+            <input type="hidden" id="chat-thinking" value="high">
+          </div>
           <button type="submit" class="send is-off" id="chat-send" aria-label="Kirim">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
           </button>
@@ -102,12 +115,32 @@
           </label>
 
           <div class="controls">
-            <label class="field"><span>Thinking</span>
-              <select id="batch-thinking">
-                <option value="">default</option><option value="low">low</option>
-                <option value="high">high</option><option value="max">max</option><option value="off">off</option>
-              </select>
-            </label>
+            <div class="field"><span>Thinking</span>
+              <div class="menu-wrap">
+                <button type="button" class="pill" data-menu-btn aria-haspopup="listbox" aria-expanded="false">
+                  <span data-menu-label>Default</span>
+                  <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="menu hidden" data-menu-list role="listbox" aria-label="Reasoning effort batch">
+                  <button type="button" class="menu-item" data-value="" data-label="Default" role="option">
+                    <span><b>Default</b><small>Ikut setelan server (high)</small></span><span class="check">✓</span>
+                  </button>
+                  <button type="button" class="menu-item" data-value="off" data-label="Instant" role="option">
+                    <span><b>Instant</b><small>Tanpa reasoning — paling cepat</small></span><span class="check">✓</span>
+                  </button>
+                  <button type="button" class="menu-item" data-value="low" data-label="Low" role="option">
+                    <span><b>Low</b><small>Reasoning singkat</small></span><span class="check">✓</span>
+                  </button>
+                  <button type="button" class="menu-item" data-value="high" data-label="High" role="option">
+                    <span><b>High</b><small>Seimbang</small></span><span class="check">✓</span>
+                  </button>
+                  <button type="button" class="menu-item" data-value="max" data-label="Max" role="option">
+                    <span><b>Max</b><small>Penalaran terdalam, paling lambat</small></span><span class="check">✓</span>
+                  </button>
+                </div>
+                <input type="hidden" id="batch-thinking" value="">
+              </div>
+            </div>
             <button class="primary" id="batch-start" disabled>Mulai klasifikasi</button>
           </div>
 

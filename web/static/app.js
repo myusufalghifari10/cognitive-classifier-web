@@ -698,4 +698,46 @@ function finishJob(data) {
   }
 }
 
+/* ---------------- popover menu (pengganti <select> native) ----------------
+   Native <select> memunculkan daftar bawaan OS yang tidak bisa digaya dan
+   merusak tampilan gelap. Tiap .menu-wrap berisi: tombol .pill (label + chevron),
+   daftar .menu, dan input hidden sebagai sumber nilai (dibaca kode lain sebagai
+   .value seperti <select> biasa). */
+document.querySelectorAll(".menu-wrap").forEach((wrap) => {
+  const btn = wrap.querySelector("[data-menu-btn]");
+  const list = wrap.querySelector("[data-menu-list]");
+  const hidden = wrap.querySelector("input[type=hidden]");
+  const label = wrap.querySelector("[data-menu-label]");
+  const items = [...list.querySelectorAll(".menu-item")];
+
+  const close = () => {
+    list.classList.add("hidden");
+    btn.setAttribute("aria-expanded", "false");
+  };
+
+  const sync = () => {
+    items.forEach((it) => it.classList.toggle("active", it.dataset.value === hidden.value));
+    const active = items.find((it) => it.dataset.value === hidden.value);
+    if (active) label.textContent = active.dataset.label;
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.querySelectorAll("[data-menu-list]").forEach((l) => { if (l !== list) l.classList.add("hidden"); });
+    const nowHidden = list.classList.toggle("hidden");
+    btn.setAttribute("aria-expanded", String(!nowHidden));
+  });
+
+  items.forEach((it) => it.addEventListener("click", () => {
+    hidden.value = it.dataset.value;
+    sync();
+    close();
+  }));
+
+  list.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", close);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  sync();
+});
+
 boot();
