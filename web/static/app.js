@@ -97,32 +97,32 @@ function assistantShell() {
   return wrap;
 }
 
-function renderResult(shell, rec) {
+function renderResult(shell, rec, liveReasoning) {
   const card = shell.querySelector(".card");
   const isFail = !state.labels.includes(rec.pred);
   const idx = state.labels.indexOf(rec.pred);
   const cls = isFail ? "FAIL" : rec.pred;
+  const thinkText = liveReasoning || rec.thinking_head || "";
   const meta = [
     `${(rec.latency_ms / 1000).toFixed(1)}s`,
     rec.finish || "—",
     rec.budget ? `budget ${rec.budget}` : "",
   ].filter(Boolean).join(" · ");
 
+  // .think ikut dibangun di sini: card.innerHTML membuang anak lama, jadi
+  // jangan pernah query elemen anak sesudah baris ini.
   card.innerHTML = `
     <div class="card-head">
       <span class="badge ${cls}">${rec.pred}</span>
       <span class="class-name">${isFail ? "tidak terparse" : state.names[idx] || ""}</span>
       <span class="meta">${meta}</span>
     </div>
-    <div class="reason"></div>`;
+    <div class="reason"></div>
+    ${thinkText ? `<details class="think"><summary>proses berpikir</summary><div class="think-body"></div></details>` : ""}`;
   card.querySelector(".reason").textContent =
     rec.reason || rec.error || "(model tidak memberi alasan)";
-
-  const think = shell.querySelector(".think");
-  if (rec.thinking_head) {
-    think.classList.remove("hidden");
-    think.querySelector(".think-body").textContent = rec.thinking_head;
-  }
+  const thinkBody = card.querySelector(".think-body");
+  if (thinkBody) thinkBody.textContent = thinkText;
 }
 
 async function sendChat(ev) {
@@ -180,7 +180,7 @@ async function sendChat(ev) {
           repaintThink();
           pending.textContent = ev === "reasoning" ? "berpikir…" : "menyusun jawaban…";
         } else if (ev === "result") {
-          renderResult(shell, data);
+          renderResult(shell, data, reasoning);
           done = true;
         } else if (ev === "error") {
           throw new Error(data.message);
