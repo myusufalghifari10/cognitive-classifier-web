@@ -643,8 +643,35 @@ function switchView(name) {
     v.classList.toggle("active", v.id === `view-${name}`));
 }
 
+/** Halaman Upload CSV kosong. Tanpa ini, isi job terakhir masih menempel di
+    panel hasil saat menu sidebar ditekan (terlihat seperti membuka sesi lama). */
+function newBatchView() {
+  stopPoll();
+  state.active = null;
+  state.rows = [];
+  pickedFile = null;
+  $("#file-input").value = "";
+  $("#drop-title").textContent = "Letakkan CSV di sini atau klik";
+  $("#drop-sub").textContent = "maks 1000 baris per run";
+  $("#dropzone").classList.remove("over");
+  $("#batch-start").disabled = true;
+  $("#result-panel").classList.add("hidden");
+  $("#progress-wrap").classList.add("hidden");
+  $("#result-session").textContent = "";
+  $("#metrics").innerHTML = "";
+  $("#result-body").innerHTML = "";
+  $("#table-tools").classList.add("hidden");
+  $("#only-wrong").checked = false;
+  document.querySelectorAll(".downloads .ghost").forEach((a) => a.classList.add("disabled"));
+  setProgress(0, 0);
+  renderSessionList();
+}
+
 document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => switchView(btn.dataset.view));
+  btn.addEventListener("click", () => {
+    if (btn.dataset.view === "batch") newBatchView();
+    switchView(btn.dataset.view);
+  });
 });
 
 /* ---------------- batch ---------------- */
