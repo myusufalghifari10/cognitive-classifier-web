@@ -301,44 +301,6 @@ async def api_sessions_search(q: str = "", limit: int = 30):
     return {"query": q, "results": results[:max(1, min(limit, 100))]}
 
 
-@app.post("/api/sessions/import")
-async def api_session_import(payload: dict):
-    """Impor sesi hasil ekspor. Selalu jadi sesi BARU: id lama tidak pernah dipakai
-    ulang sehingga tidak mungkin menimpa sesi yang sudah ada."""
-    if payload.get("app") != "cognitive-classifier-web":
-        raise HTTPException(400, "Bukan berkas ekspor aplikasi ini.")
-    if payload.get("schema") != 1:
-        raise HTTPException(400, "Versi skema tidak didukung.")
-    src = payload.get("session") or {}
-    messages = []
-    for msg in src.get("messages") or []:
-        role = msg.get("role")
-        if role not in ("user", "assistant"):
-            continue
-        messages.append({k: v for k, v in msg.items() if k != "id"} | {"role": role})
-    if not messages:
-        raise HTTPException(400, "Sesi tanpa pesan tidak bisa diimpor.")
-    if len(messages) > 500:
-        raise HTTPException(400, "Terlalu banyak pesan (maks 500).")
-    async with _session_lock:
-        session_id = uuid.uuid4().hex[:12]
-        title = ((src.get("title") or "Sesi impor").strip()[:70] + " (impor)")[:80]
-        _write_session({"id": session_id, "kind": "chat", "title": title,
-                        "pinned": False, "created_at": _now(), "updated_at": _now(),
-                        "imported_at": _now(), "messages": messages})
-    return {"id": session_id, "title": title, "n_messages": len(messages)}
-
-
-@app.post("/api/sessions")
-async def api_session_create(payload: dict | None = None):
-    async with _session_lock:
-        session_id = uuid.uuid4().hex[:12]
-        title = ((payload or {}).get("title") or "Sesi baru").strip()[:80]
-        _write_session({"id": session_id, "title": title, "created_at": _now(),
-                        "updated_at": _now(), "pinned": False, "messages": []})
-    return {"id": session_id, "title": title}
-
-
 @app.get("/api/sessions/{session_id}")
 async def api_session_get(session_id: str):
     data = _read_session(session_id)

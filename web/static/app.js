@@ -990,7 +990,6 @@ ctx.addEventListener("click", async (e) => {
   if (!act) return;
   if (act === "back") { renderCtxMain(); return; }
   if (act === "share") { renderCtxShare(); return; }
-  if (act === "import") { closeCtx(); $("#import-file").click(); return; }
   const id = ctxId;
   const s = state.sessions.find((x) => x.id === id);
   closeCtx();
@@ -1013,16 +1012,8 @@ ctx.addEventListener("click", async (e) => {
   if (act === "cp-text") return copyText(toPlain(env));
 });
 
-$("#side-menu").addEventListener("click", (e) => {
-  e.stopPropagation();
-  ctxId = null;
-  ctxAnchor = e.currentTarget;
-  ctx.innerHTML = `<button class="ctx-item" data-ctx="import">Impor sesi (.json)</button>`;
-  placeCtx(ctxAnchor);
-});
-
 document.addEventListener("click", (e) => {
-  if (!e.target.closest("#ctx") && !e.target.closest("[data-act='menu']") && !e.target.closest("#side-menu")) {
+  if (!e.target.closest("#ctx") && !e.target.closest("[data-act='menu']")) {
     closeCtx();
   }
 });
@@ -1143,23 +1134,7 @@ $("#search-input").addEventListener("keydown", (e) => {
   }
 });
 
-/* ---------------- impor sesi ---------------- */
-
-$("#import-file").addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  try {
-    const env = JSON.parse(await file.text());
-    const res = await api("/api/sessions/import",
-      { method: "POST", body: JSON.stringify(env) });
-    await loadSessions();
-    await openSession(res.id);
-    toast(`Sesi diimpor, ${res.n_messages} pesan`);
-  } catch (err) {
-    alert(`Impor gagal: ${err.message}`);
-  }
-  e.target.value = "";
-});
+/* ---------------- pintasan papan ketik ---------------- */
 
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {

@@ -64,15 +64,10 @@
       </button>
     </div>
 
-    <div class="side-bottom">
-      <details class="class-defs" id="class-defs">
-        <summary>Arti tiap kelas <span class="chev">›</span></summary>
-        <ul class="legend" id="legend"></ul>
-      </details>
-      <button class="icon-btn" id="side-menu" title="Impor sesi" aria-label="Impor sesi" aria-haspopup="menu">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>
-      </button>
-    </div>
+    <details class="class-defs" id="class-defs">
+      <summary>Arti tiap kelas <span class="chev">›</span></summary>
+      <ul class="legend" id="legend"></ul>
+    </details>
 
   </aside>
 
@@ -224,8 +219,6 @@
 
 <!-- menu konteks mengambang untuk tiap sesi -->
 <div class="ctx hidden" id="ctx" role="menu"></div>
-
-<input type="file" id="import-file" accept="application/json,.json" hidden>
 
 <script src="/static/app.js"></script>
 </body>

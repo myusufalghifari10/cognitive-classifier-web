@@ -49,9 +49,7 @@ keperluan benchmarking, bukan lewat app.
 - **Pencarian sesi (Ctrl+K).** Mencocokkan judul DAN isi pesan, menampilkan
   potongan teks yang cocok dengan sorotan, lalu klik untuk membuka sesinya.
 - **Bagikan.** Submenu per sesi: unduh JSON (format aplikasi), unduh Markdown,
-  atau copy ke clipboard sebagai teks biasa, Markdown, atau JSON. Berkas JSON
-  bisa dimasukkan lagi lewat menu header sidebar (Impor sesi). Impor selalu
-  membuat sesi baru dengan id baru, jadi tidak mungkin menimpa sesi yang ada.
+  atau copy ke clipboard sebagai teks biasa, Markdown, atau JSON.
 - **Sesi chat** tersimpan di server (`data/sessions/<id>.json`), bukan di browser:
   riwayat tetap ada setelah refresh, tutup tab, bahkan restart server. Sesi bisa
   diganti nama dan dihapus dari sidebar. Judul otomatis diambil dari pesan pertama.
