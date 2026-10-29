@@ -1,6 +1,6 @@
-# Cognitive Classifier — Web
+# Nalaraya
 
-App web sederhana untuk klasifikasi **Cognitive Presence** (CoI, 5 kelas) atas
+App web untuk klasifikasi **Cognitive Presence** (CoI, 5 kelas) atas
 postingan diskusi: satu teks lewat tampilan chat, atau banyak teks sekaligus lewat
 upload CSV. Tanpa login, tanpa database.
 

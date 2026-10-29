@@ -1,4 +1,4 @@
-# Sistem desain: Cognitive Presence
+# Sistem desain: Nalaraya
 
 `design.md` ini adalah sistem yang terkunci untuk proyek ini. Setiap perubahan
 visual berikutnya mengikuti token di sini, bukan menambah nilai baru di tempat.
@@ -8,6 +8,34 @@ visual berikutnya mengikuti token di sini, bukan menambah nilai baru di tempat.
 Ditetapkan dari satu putaran `hallmark audit` (lihat riwayat commit) terhadap
 aplikasi ini. Genre: **modern-minimal, dark tool**. Ini aplikasi, bukan halaman
 marketing, jadi aturan macrostructure/nav/footer tidak berlaku.
+
+## Identitas
+
+Nama produk **Nalaraya**, metodenya *Cognitive Presence* (dipakai sebagai
+deskriptor, bukan sebagai brand).
+
+Lambangnya dua bentuk dari satu identitas, warna sama:
+
+| Berkas | Bentuk | Ukuran pakai |
+|---|---|---|
+| `logo-n.svg` | monogram N bergaris di atas | 20px di dalam tile 30px |
+| `logo-nalaraya.svg` | profil wajah bergaya Jawa, garis tunggal | 72px di empty state |
+| `logo-favicon.svg` | huruf N saja pada kotak gelap | favicon 16-32px |
+
+Yang kecil **monogram**, bukan kepala, karena mark kepala berasal dari artwork
+garis rambut 1536px: pada 30px stroke-nya jatuh di bawah 1 piksel dan larut jadi
+kabut. Sudah diuji render pada 17, 30, 54, dan 64px.
+
+Warna brand `--brand: oklch(0.780 0.130 151)` adalah `#00853F` asli yang
+lightness-nya dinaikkan untuk kanvas gelap. Hue tidak berubah. Rasio terukur
+9.86:1 terhadap `--bg`. Warna asli `#00853F` (L 0.540) hanya 3.96:1 dan terlihat
+kusam di latar ini, jadi hanya dipakai bila lambang dicetak di atas putih.
+
+Aturan pakai: **hijau hanya untuk lambang**, tidak pernah untuk state interaksi,
+fokus, atau tombol. Biru (`--accent`, hue 240) tetap aksen interaksi, dan
+`--c0`..`--c4` tetap encoding kategori. Hijau harus tetap di bawah 3% luas layar.
+Tidak ada kotak putih di belakang lambang: permukaan paling terang di app ini
+L 0.268, jadi tile putih akan jadi elemen paling terang di layar.
 
 ## Warna
 

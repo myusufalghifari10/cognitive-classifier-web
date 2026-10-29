@@ -36,7 +36,14 @@
   --wash-3: var(--wash-3);
   --wash-4: var(--wash-4);
 
-  /* aksen: satu hue (240) + turunannya */
+  /* identitas: hijau Nalaraya, dinaikkan lightness-nya untuk kanvas gelap.
+     Hue tetap 151 (dari #00853F asli), hanya L dan C yang bergerak. */
+  --brand: oklch(0.780 0.130 151);
+  --brand-strong: oklch(0.860 0.100 151);
+  --brand-soft: oklch(0.780 0.130 151 / 10%);
+  --brand-line: oklch(0.780 0.130 151 / 28%);
+
+  /* aksen interaksi: satu hue (240) + turunannya */
   --accent: oklch(0.700 0.130 240);
   --accent-fg: oklch(0.880 0.050 240);
   --accent-soft: oklch(0.700 0.130 240 / 20%);
@@ -139,22 +146,25 @@ button { font: inherit; color: inherit; }
   font-size: var(--t-sm); font-weight: 600; letter-spacing: -0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* Logo aplikasi: tile gradien dengan glyph gelembung percakapan.
-   Satu sumber SVG (data-logo) diisi oleh app.js. */
+/* Identitas Nalaraya, dua bentuk satu warna:
+   - monogram N (/static/logo-n.svg) untuk ukuran kecil: garisnya tetap tajam
+     di bawah 32px, sedangkan mark kepala larut jadi kabut karena artwork-nya
+     garis rambut 1536px.
+   - mark kepala (/static/logo-nalaraya.svg) hanya untuk ukuran besar.
+   Keduanya memakai --brand, jadi tetap terbaca sebagai satu identitas. */
 .logo-tile {
   width: 30px; height: 30px; flex: none; border-radius: 10px;
   display: grid; place-items: center;
-  background: linear-gradient(145deg, var(--c3), var(--c2) 60%, var(--c4));
-  box-shadow: inset 0 1px 0 var(--hair-max);
+  background: var(--brand-soft);
+  box-shadow: inset 0 0 0 1px var(--brand-line);
 }
-.logo-tile svg { width: 17px; height: 17px; fill: none; stroke: var(--fg); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.logo-tile img { width: 20px; height: 20px; display: block; }
+/* Mark kepala tampil tanpa tile: garis tipis tidak butuh kotak di belakangnya. */
 .empty-logo {
-  width: 54px; height: 54px; margin: 0 auto var(--space-lg); border-radius: 17px;
+  width: 72px; height: 72px; margin: 0 auto var(--space-lg);
   display: grid; place-items: center;
-  background: linear-gradient(145deg, var(--c3), var(--c2) 60%, var(--c4));
-  box-shadow: inset 0 1px 0 var(--hair-max), 0 10px 28px var(--shadow);
 }
-.empty-logo svg { width: 28px; height: 28px; fill: none; stroke: var(--fg); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.empty-logo img { width: 72px; height: 72px; display: block; }
 
 .nav { display: flex; flex-direction: column; gap: var(--space-3xs); }
 .nav-item {
