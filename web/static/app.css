@@ -22,6 +22,7 @@
 html, body {
   margin: 0;
   height: 100%;
+  overflow: hidden;              /* body tidak boleh scroll: hanya panel kanan yang scroll */
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
@@ -29,13 +30,13 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-.shell { display: grid; grid-template-columns: 264px 1fr; height: 100vh; }
+.shell { display: grid; grid-template-columns: 264px 1fr; height: 100vh; overflow: hidden; }
 
 /* ---------- sidebar ---------- */
 .sidebar {
   display: flex; flex-direction: column; gap: 14px;
   padding: 16px 12px;
-  height: 100vh; min-height: 0; overflow: hidden;
+  height: 100%; min-height: 0; overflow: hidden;
   border-right: 1px solid var(--border);
   background: oklch(0.17 0 0);
 }
@@ -76,20 +77,20 @@ html, body {
 .side-footer small { color: var(--muted-fg); font-size: 11px; }
 
 /* ---------- main ---------- */
-.main { display: flex; min-width: 0; }
-.view { display: none; flex-direction: column; width: 100%; min-width: 0; }
+.main { display: flex; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.view { display: none; flex-direction: column; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .view.active { display: flex; }
 
 .topbar {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-  padding: 18px 26px; border-bottom: 1px solid var(--border);
+  padding: 18px 26px; border-bottom: 1px solid var(--border); flex: none;
 }
 .topbar h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .topbar p { margin: 3px 0 0; font-size: 12px; color: var(--muted-fg); }
 .topbar code { font-family: var(--mono); font-size: 11px; background: var(--muted); padding: 1px 5px; border-radius: 5px; }
 
 /* ---------- chat ---------- */
-.thread { flex: 1; overflow-y: auto; padding: 26px; display: flex; flex-direction: column; gap: 18px; }
+.thread { flex: 1; min-height: 0; overflow-y: auto; padding: 26px; display: flex; flex-direction: column; gap: 18px; }
 .thread-inner { width: 100%; max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 
 .empty { margin: auto; text-align: center; max-width: 460px; }
@@ -155,7 +156,7 @@ details.think[open] summary::before { content: "▾"; }
 
 /* ---------- composer ---------- */
 .composer {
-  display: flex; gap: 10px; align-items: flex-end;
+  display: flex; gap: 10px; align-items: flex-end; flex: none;
   padding: 14px 26px 20px; border-top: 1px solid var(--border);
 }
 .composer textarea {
@@ -174,7 +175,7 @@ details.think[open] summary::before { content: "▾"; }
 .send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- batch ---------- */
-.batch-grid { flex: 1; overflow-y: auto; padding: 22px 26px 40px; display: flex; flex-direction: column; gap: 18px; }
+.batch-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 26px 40px; display: flex; flex-direction: column; gap: 18px; }
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
 .dropzone {
   display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;

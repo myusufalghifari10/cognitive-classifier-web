@@ -317,6 +317,8 @@ async def api_session_append(session_id: str, payload: dict):
     msg["at"] = _now()
     async with _session_lock:
         data = _read_session(session_id)
+        if (data.get("kind") or "chat") == "batch":
+            raise HTTPException(400, "Sesi hasil CSV tidak menerima pesan chat.")
         data["messages"].append(msg)
         if role == "user" and data.get("title") in (None, "", "Sesi baru"):
             data["title"] = msg["text"][:60]      # judul otomatis dari pesan pertama

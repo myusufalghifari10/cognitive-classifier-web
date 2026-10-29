@@ -250,21 +250,23 @@ function patchSession(id, res) {
   renderSessionList();
 }
 
-async function newSession() {
-  // Tekan "+" berkali-kali jangan bikin sesi kosong bertumpuk: pakai ulang
-  // sesi aktif yang masih kosong.
-  const active = state.sessions.find((s) => s.id === state.active);
-  if (active && active.n_messages === 0) {
-    renderThread([]);
-    input.focus();
-    return state.active;
-  }
-  const s = await api("/api/sessions", { method: "POST", body: JSON.stringify({}) });
-  state.sessions.unshift({ id: s.id, title: s.title, updated_at: new Date().toISOString(), n_messages: 0 });
-  state.active = s.id;
+/** Buka komposer kosong. Sesi di server baru dibuat saat pesan pertama dikirim,
+    jadi "+" yang ditekan berulang tidak meninggalkan sesi kosong di sidebar. */
+function newSession() {
+  stopPoll();
+  state.active = null;
   renderSessionList();
+  switchView("chat");
   renderThread([]);
   input.focus();
+}
+
+async function createSession() {
+  const s = await api("/api/sessions", { method: "POST", body: JSON.stringify({}) });
+  state.sessions.unshift({ id: s.id, kind: "chat", title: s.title,
+                           updated_at: new Date().toISOString(), n_messages: 0 });
+  state.active = s.id;
+  renderSessionList();
   return s.id;
 }
 
@@ -460,8 +462,10 @@ async function sendChat(ev) {
   let shell = null;
 
   try {
-    if (!state.active) await newSession();
-    const sessionId = state.active;
+    // Sesi aktif bisa berupa hasil CSV (tidak menerima pesan chat) -> buat sesi chat baru.
+    const activeItem = state.sessions.find((s) => s.id === state.active);
+    const sessionId = (!activeItem || activeItem.kind === "batch")
+      ? await createSession() : state.active;
 
     const saved = await persist(sessionId, { role: "user", text });
     patchSession(sessionId, saved);
