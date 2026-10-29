@@ -58,7 +58,6 @@ async def api_classify(payload: dict):
     text = (payload.get("text") or "").strip()
     if not text:
         raise HTTPException(400, "Teks postingan kosong.")
-    mode = payload.get("mode") if payload.get("mode") in ("few", "zero") else "few"
     thinking = payload.get("thinking") or None
 
     async def events():
@@ -70,8 +69,8 @@ async def api_classify(payload: dict):
         async def worker() -> None:
             try:
                 async with classifier.make_client() as client:
-                    rec = await classifier.classify(client, text, mode=mode,
-                                                    thinking=thinking, on_delta=on_delta)
+                    rec = await classifier.classify(client, text, thinking=thinking,
+                                                    on_delta=on_delta)
                 queue.put_nowait(("result", rec, None))
             except Exception as exc:                      # noqa: BLE001 — dilaporkan ke UI
                 queue.put_nowait(("error", None, f"{type(exc).__name__}: {exc}"))
@@ -79,7 +78,7 @@ async def api_classify(payload: dict):
                 queue.put_nowait(("end", None, None))
 
         task = asyncio.create_task(worker())
-        yield sse("start", {"mode": mode, "thinking": thinking})
+        yield sse("start", {"thinking": thinking})
         while True:
             kind, payload, extra = await queue.get()
             if kind == "delta":
@@ -114,7 +113,7 @@ async def _run_job(job: dict, rows: list[dict]) -> None:
 
 
 @app.post("/api/jobs")
-async def api_create_job(file: UploadFile = File(...), mode: str = Form("few"),
+async def api_create_job(file: UploadFile = File(...),
                          thinking: str = Form(""), concurrency: int = Form(8)):
     raw = await file.read()
     job_id = uuid.uuid4().hex[:12]
@@ -131,7 +130,7 @@ async def api_create_job(file: UploadFile = File(...), mode: str = Form("few"),
         raise HTTPException(400, f"CSV berisi {len(rows)} baris, batas {MAX_ROWS} per run.")
 
     job = {"id": job_id, "status": "queued", "total": len(rows), "done": 0, "records": [],
-           "mode": mode if mode in ("few", "zero") else "few", "thinking": thinking or None,
+           "mode": "few", "thinking": thinking or None,
            "concurrency": max(1, min(int(concurrency or 8), 16)), "dir": str(job_dir),
            "metrics": None, "usage": None, "error": None, "filename": file.filename,
            "created": datetime.now().isoformat(timespec="seconds")}

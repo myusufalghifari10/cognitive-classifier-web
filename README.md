@@ -26,6 +26,10 @@ port ini bisa membakar kredit API.
 
 ## Fitur
 
+Prompt **terkunci few-shot** (`prompts/system_few_shot.md`); tidak ada pilihan
+few/zero di UI. Zero-shot hanya tersedia lewat CLI `core.batch --mode zero`, untuk
+keperluan benchmarking, bukan lewat app.
+
 - **Klasifikasi Teks** — postingan → label `C0..C4` + alasan, dengan proses berpikir
   model di-stream live (SSE) dan bisa dibuka lewat "proses berpikir".
 - **Upload CSV** — kolom `text` wajib, kolom `label` (atau `gold`/`kelas`) opsional.

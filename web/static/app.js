@@ -155,7 +155,7 @@ async function sendChat(ev) {
     const res = await fetch("/api/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, mode: $("#chat-mode").value }),
+      body: JSON.stringify({ text }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
@@ -236,7 +236,6 @@ $("#batch-start").addEventListener("click", async () => {
 
   const fd = new FormData();
   fd.append("file", pickedFile);
-  fd.append("mode", $("#batch-mode").value);
   fd.append("thinking", $("#batch-thinking").value);
   fd.append("concurrency", $("#batch-conc").value);
 
