@@ -389,19 +389,11 @@ async function renameSession(id, item) {
 async function deleteSession(id, silent = false) {
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return;
-  const isBatch = s.kind === "batch";
-  if (!silent && !confirm(isBatch
-    ? `Hapus sesi "${s.title}" dari daftar? Berkas hasil di runs/ tetap tersimpan.`
-    : `Hapus sesi "${s.title}"? Riwayatnya hilang permanen.`)) return;
-  try {
-    await api(`/api/sessions/${id}`, { method: "DELETE" });
-  } catch (err) {
-    alert(`Gagal hapus: ${err.message}`);
-    return;
-  }
+  const at = state.sessions.findIndex((x) => x.id === id);
+
+  // Hapus optimistis: baris hilang sekarang, DELETE sungguhan 8 detik kemudian.
+  // Selama jendela itu pengguna bisa membatalkan tanpa kehilangan apa pun.
   state.sessions = state.sessions.filter((x) => x.id !== id);
-  // Sesi aktif dihapus -> kosongkan, jangan auto-buka sesi lain (sama seperti
-  // deleteConversation llama.cpp: clearActiveConversation).
   if (state.active === id) {
     state.active = null;
     stopPoll();
@@ -411,6 +403,27 @@ async function deleteSession(id, silent = false) {
     saveUiState();
   }
   renderSessionList();
+  if (silent) return;
+
+  let undone = false;
+  const timer = setTimeout(async () => {
+    if (undone) return;
+    try {
+      await api(`/api/sessions/${id}`, { method: "DELETE" });
+    } catch (err) {
+      toast(`Gagal menghapus: ${err.message}`);
+    }
+  }, 8000);
+
+  toast(`Sesi "${s.title}" dihapus`, {
+    label: "Batalkan",
+    onAction: () => {
+      undone = true;
+      clearTimeout(timer);
+      state.sessions.splice(Math.min(at, state.sessions.length), 0, s);
+      renderSessionList();
+    },
+  });
 }
 
 $("#session-list").addEventListener("click", (e) => {
@@ -439,7 +452,7 @@ $("#bulk-bar").addEventListener("click", async (e) => {
       if (s && !s.pinned) await togglePin(s, true);
     }
   } else if (act === "delete") {
-    if (!confirm(`Hapus ${ids.length} sesi terpilih?`)) return;
+    if (!confirm(`Hapus ${ids.length} sesi terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
     for (const id of ids) await deleteSession(id, true);
   }
   exitBulk();
@@ -878,7 +891,7 @@ function slug(text) {
     .replace(/^-+|-+$/g, "").slice(0, 48) || "sesi";
 }
 
-function toast(msg) {
+function toast(msg, action = null) {
   let el = $("#toast");
   if (!el) {
     el = document.createElement("div");
@@ -886,10 +899,25 @@ function toast(msg) {
     el.className = "toast";
     document.body.appendChild(el);
   }
-  el.textContent = msg;
+  el.textContent = "";
+  const text = document.createElement("span");
+  text.textContent = msg;
+  el.append(text);
+  if (action) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "toast-act";
+    btn.textContent = action.label;
+    btn.addEventListener("click", () => {
+      clearTimeout(el._t);
+      el.classList.remove("show");
+      action.onAction();
+    });
+    el.append(btn);
+  }
   el.classList.add("show");
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove("show"), 2000);
+  el._t = setTimeout(() => el.classList.remove("show"), action ? 8000 : 2000);
 }
 
 function download(filename, text, type = "application/json") {
@@ -1158,7 +1186,7 @@ $("#search-input").addEventListener("input", (e) => {
 
 async function runSearch(q) {
   const box = $("#search-results");
-  box.innerHTML = `<p class="search-hint">Mencari...</p>`;
+  box.innerHTML = `<p class="search-hint">Mencari…</p>`;
   let data;
   try {
     data = await api(`/api/sessions/search?q=${encodeURIComponent(q)}`);
