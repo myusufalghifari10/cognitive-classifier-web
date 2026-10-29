@@ -647,11 +647,20 @@ async function sendChat(ev) {
       }
     }
   } catch (err) {
+    const msg = String(err?.message || err);
     const card = shell?.querySelector(".card");
     if (card) {
       card.innerHTML = `<div class="card-head"><span class="badge FAIL">ERROR</span></div>
         <div class="reason"></div>`;
-      card.querySelector(".reason").textContent = String(err.message || err);
+      card.querySelector(".reason").textContent = msg;
+    } else {
+      // Gagal sebelum kartu dibuat (mis. sesi gagal dibuat). Jangan diam:
+      // teks dikembalikan ke kotak dan kegagalan diberitahukan.
+      input.value = text;
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 240) + "px";
+      syncSend();
+      toast(`Gagal mengirim: ${msg}`);
     }
   } finally {
     state.busy = false;

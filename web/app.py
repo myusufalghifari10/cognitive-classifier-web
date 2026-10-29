@@ -305,6 +305,16 @@ async def api_sessions_search(q: str = "", limit: int = 30):
     return {"query": q, "results": results[:max(1, min(limit, 100))]}
 
 
+@app.post("/api/sessions")
+async def api_session_create(payload: dict | None = None):
+    async with _session_lock:
+        session_id = uuid.uuid4().hex[:12]
+        title = ((payload or {}).get("title") or "Sesi baru").strip()[:80]
+        _write_session({"id": session_id, "title": title, "created_at": _now(),
+                        "updated_at": _now(), "pinned": False, "messages": []})
+    return {"id": session_id, "title": title}
+
+
 @app.get("/api/sessions/{session_id}")
 async def api_session_get(session_id: str):
     data = _read_session(session_id)
