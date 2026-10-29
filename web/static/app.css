@@ -55,7 +55,7 @@ button { font: inherit; color: inherit; }
   width: 268px; flex: none;
   height: 100%; min-height: 0; overflow: hidden;
   background: oklch(0.158 0 0);
-  transition: margin-left .28s cubic-bezier(.32, .72, 0, 1), opacity .2s ease;
+  transition: margin-left .46s cubic-bezier(.32, .72, 0, 1), opacity .3s ease;
 }
 /* Tutup sidebar: geser keluar ke kiri, konten utama melebar mengikuti (DeepSeek). */
 .shell.collapsed .sidebar { margin-left: -268px; opacity: 0; pointer-events: none; }
@@ -512,7 +512,7 @@ td.gold { color: var(--muted-fg); }
   position: fixed; top: 16px; left: 16px; z-index: 30;
   display: flex; align-items: center; gap: 10px;
 }
-.rail:not(.hidden) { animation: rail-in .24s cubic-bezier(.32, .72, 0, 1) both; }
+.rail:not(.hidden) { animation: rail-in .4s cubic-bezier(.32, .72, 0, 1) both; }
 @keyframes rail-in { from { opacity: 0; transform: translateX(-10px); } }
 @media (prefers-reduced-motion: reduce) { .rail:not(.hidden) { animation: none; } }
 .rail-logo {
