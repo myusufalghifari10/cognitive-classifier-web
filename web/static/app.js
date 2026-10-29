@@ -22,6 +22,7 @@ const state = {
   rows: [],
   busy: false,
   poll: null,
+  view: "chat",
   collapsed: false,
   bulk: { on: false, ids: new Set() },
 };
@@ -65,7 +66,31 @@ async function boot() {
   } catch {
     // biarkan nilai default lokal; daftar sesi tetap dicoba di bawah
   }
-  await loadSessions(true);
+  await loadSessions();
+  await restoreUi();
+}
+
+/* Posisi terakhir (view + sesi) disimpan supaya reload tidak melompat ke halaman lain. */
+const UI_KEY = "uiState";
+
+function saveUiState() {
+  try {
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: state.view, sessionId: state.active }));
+  } catch {}   // mode privat / kuota penuh: abaikan, hanya kehilangan posisi
+}
+
+async function restoreUi() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(UI_KEY) || "null"); } catch { saved = null; }
+  const id = saved?.sessionId && state.sessions.some((s) => s.id === saved.sessionId)
+    ? saved.sessionId : null;
+  if (id) { await openSession(id); return; }
+  if (saved?.view === "batch") {
+    newBatchView();
+    switchView("batch");
+    return;
+  }
+  newSession();
 }
 
 function renderLegend() {
@@ -96,7 +121,6 @@ async function loadSessions(openLatest = false) {
     else showEmpty();
   }
 }
-
 function fmtWhen(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -384,6 +408,7 @@ async function deleteSession(id, silent = false) {
     $("#result-panel").classList.add("hidden");
     $("#progress-wrap").classList.add("hidden");
     showEmpty();
+    saveUiState();
   }
   renderSessionList();
 }
@@ -641,6 +666,8 @@ function switchView(name) {
     b.classList.toggle("active", b.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) =>
     v.classList.toggle("active", v.id === `view-${name}`));
+  state.view = name;
+  saveUiState();
 }
 
 /** Halaman Upload CSV kosong. Tanpa ini, isi job terakhir masih menempel di
@@ -713,6 +740,7 @@ $("#batch-start").addEventListener("click", async () => {
 
     state.rows = [];
     state.active = data.session_id;
+    saveUiState();
     $("#result-body").innerHTML = "";
     $("#metrics").innerHTML = "";
     $("#result-panel").classList.remove("hidden");
