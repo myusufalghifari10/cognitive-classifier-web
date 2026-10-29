@@ -386,13 +386,12 @@ async function renameSession(id, item) {
   field.addEventListener("blur", () => finish(true));
 }
 
-async function deleteSession(id, silent = false) {
+async function deleteSession(id) {
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return;
   const at = state.sessions.findIndex((x) => x.id === id);
 
-  // Hapus optimistis: baris hilang sekarang, DELETE sungguhan 8 detik kemudian.
-  // Selama jendela itu pengguna bisa membatalkan tanpa kehilangan apa pun.
+  // Baris hilang seketika dari layar; file dihapus di akhir fungsi ini.
   state.sessions = state.sessions.filter((x) => x.id !== id);
   if (state.active === id) {
     state.active = null;
@@ -403,27 +402,19 @@ async function deleteSession(id, silent = false) {
     saveUiState();
   }
   renderSessionList();
-  if (silent) return;
 
-  let undone = false;
-  const timer = setTimeout(async () => {
-    if (undone) return;
-    try {
-      await api(`/api/sessions/${id}`, { method: "DELETE" });
-    } catch (err) {
-      toast(`Gagal menghapus: ${err.message}`);
-    }
-  }, 8000);
-
-  toast(`Sesi "${s.title}" dihapus`, {
-    label: "Batalkan",
-    onAction: () => {
-      undone = true;
-      clearTimeout(timer);
-      state.sessions.splice(Math.min(at, state.sessions.length), 0, s);
-      renderSessionList();
-    },
-  });
+  // DELETE langsung, tanpa penundaan. Dulu ada jeda 8 detik untuk tombol
+  // "Batalkan", dan hapus massal bahkan tidak memanggil server sama sekali:
+  // barisnya hilang dari layar, filenya tetap ada, lalu muncul lagi setelah
+  // refresh. Sekarang file dihapus saat itu juga, dan bila gagal barisnya
+  // dikembalikan ke posisi semula.
+  try {
+    await api(`/api/sessions/${id}`, { method: "DELETE" });
+  } catch (err) {
+    state.sessions.splice(Math.min(at, state.sessions.length), 0, s);
+    renderSessionList();
+    toast(`Gagal menghapus: ${err.message}`);
+  }
 }
 
 $("#session-list").addEventListener("click", (e) => {
@@ -453,7 +444,7 @@ $("#bulk-bar").addEventListener("click", async (e) => {
     }
   } else if (act === "delete") {
     if (!confirm(`Hapus ${ids.length} sesi terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
-    for (const id of ids) await deleteSession(id, true);
+    for (const id of ids) await deleteSession(id);
   }
   exitBulk();
 });

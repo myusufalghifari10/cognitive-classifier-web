@@ -117,9 +117,16 @@ Enam level bernama: `--z-sticky` 1 · `--z-rail` 30 · `--z-menu` 40 · `--z-ctx
 Bahasa Indonesia, sapaan netral, tanpa em dash dan tanpa en dash (aturan pemilik
 proyek, meng-override gate minor anti-patterns yang menyarankan em dash).
 Elipsis memakai `…`. Error menyebut apa yang gagal dan apa langkah berikutnya.
-Hapus satu sesi bersifat reversibel: pakai toast **Batalkan** 8 detik, bukan
-dialog konfirmasi. Hapus massal tetap satu konfirmasi karena tidak bisa
-dibatalkan.
+Hapus sesi langsung menghapus file di server, tanpa jeda dan tanpa tombol
+batalkan. Baris hilang dari layar seketika, lalu `DELETE /api/sessions/{id}`
+dipanggil saat itu juga; kalau gagal, baris dikembalikan ke posisi semula dan
+kegagalan diberitahukan lewat toast. Hapus massal memakai satu konfirmasi, lalu
+menghapus tiap sesi dengan cara yang sama.
+
+Riwayat: sebelumnya hapus satu sesi menunda DELETE 8 detik dengan toast
+"Batalkan", dan hapus massal tidak memanggil server sama sekali. Akibatnya sesi
+yang sudah dihapus muncul lagi setelah refresh karena filenya masih ada. Jangan
+kembalikan pola tunda itu tanpa endpoint pemulihan yang benar.
 
 ## Ikon
 
