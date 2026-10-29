@@ -134,23 +134,34 @@ const KEBAB_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy
 
 function sessionItemHtml(s) {
   const isBatch = s.kind === "batch";
+  const picked = state.bulk.on && state.bulk.ids.has(s.id);
+
+  // Mode pilih banyak: baris jadi judul + bulatan centang saja (gaya chat.deepseek.com)
+  if (state.bulk.on) {
+    return `
+    <div class="session-item bulk${picked ? " picked" : ""}" data-id="${s.id}">
+      <span class="sel-box${picked ? " on" : ""}" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+      </span>
+      <span class="session-title"></span>
+    </div>`;
+  }
+
   const sub = isBatch
     ? [`CSV, ${s.n_rows ?? 0} baris`,
        s.accuracy != null ? `${(s.accuracy * 100).toFixed(1)}%` : null,
        s.status && s.status !== "done" ? s.status : null].filter(Boolean).join(" · ")
     : `${s.n_messages} pesan`;
-  const picked = state.bulk.on && state.bulk.ids.has(s.id);
   return `
-    <div class="session-item${s.id === state.active ? " active" : ""}${picked ? " picked" : ""}" data-id="${s.id}">
-      ${state.bulk.on ? '<span class="tick" aria-hidden="true"></span>' : ""}
+    <div class="session-item${s.id === state.active ? " active" : ""}" data-id="${s.id}">
       <button class="session-open" data-act="open">
         <span class="session-line">
-          ${s.pinned && !state.bulk.on ? PIN_SVG : ""}${isBatch ? '<span class="kind">CSV</span>' : ""}
+          ${s.pinned ? PIN_SVG : ""}${isBatch ? '<span class="kind">CSV</span>' : ""}
           <span class="session-title"></span>
         </span>
         <small>${sub} · ${fmtWhen(s.updated_at)}</small>
       </button>
-      ${state.bulk.on ? "" : `<button class="kebab" data-act="menu" title="Opsi sesi" aria-label="Opsi sesi">${KEBAB_SVG}</button>`}
+      <button class="kebab" data-act="menu" title="Opsi sesi" aria-label="Opsi sesi">${KEBAB_SVG}</button>
     </div>`;
 }
 
@@ -395,7 +406,6 @@ $("#rail-new").addEventListener("click", () => newSession());
 $("#bulk-bar").addEventListener("click", async (e) => {
   const act = e.target.closest("[data-bulk]")?.dataset.bulk;
   if (!act) return;
-  if (act === "cancel") return exitBulk();
   const ids = [...state.bulk.ids];
   if (!ids.length) return;
   if (act === "pin") {
@@ -409,6 +419,8 @@ $("#bulk-bar").addEventListener("click", async (e) => {
   }
   exitBulk();
 });
+
+$("#bulk-close").addEventListener("click", () => exitBulk());
 
 /* ---------------- thread rendering ---------------- */
 
@@ -1021,8 +1033,11 @@ async function togglePin(s, silent = false) {
 /* ---------------- pilih banyak ---------------- */
 
 function syncBulk() {
-  $("#bulk-bar").classList.toggle("hidden", !state.bulk.on);
-  $("#bulk-count").textContent = `${state.bulk.ids.size} dipilih`;
+  const on = state.bulk.on;
+  $(".sidebar").classList.toggle("selecting", on);
+  $("#bulk-head").classList.toggle("hidden", !on);
+  $("#bulk-bar").classList.toggle("hidden", !on);
+  $("#bulk-count").textContent = `${state.bulk.ids.size} obrolan dipilih`;
 }
 
 function enterBulk(id) {
@@ -1142,6 +1157,7 @@ document.addEventListener("keydown", (e) => {
   } else if (e.key === "Escape") {
     closeSearch();
     closeCtx();
+    if (state.bulk.on) exitBulk();
   }
 });
 
