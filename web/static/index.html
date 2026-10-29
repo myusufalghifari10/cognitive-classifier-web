@@ -68,8 +68,16 @@
       <form class="composer" id="composer">
         <div class="composer-box">
           <textarea id="chat-input" rows="2" placeholder="Tempel postingan diskusi di sini… (Enter untuk kirim, Shift+Enter baris baru)"></textarea>
-          <button type="submit" class="send" id="chat-send" aria-label="Kirim">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <label class="effort" title="Kedalaman penalaran model (reasoning effort)">
+            <select id="chat-thinking">
+              <option value="off">Instant</option>
+              <option value="low">Low</option>
+              <option value="high" selected>High</option>
+              <option value="max">Max</option>
+            </select>
+          </label>
+          <button type="submit" class="send is-off" id="chat-send" aria-label="Kirim">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
           </button>
         </div>
       </form>

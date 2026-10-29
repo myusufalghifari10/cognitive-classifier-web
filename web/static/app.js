@@ -30,6 +30,12 @@ const chatEmpty = $("#chat-empty");
 const chatView = $("#view-chat");
 const input = $("#chat-input");
 const sendBtn = $("#chat-send");
+const thinkingSel = $("#chat-thinking");
+
+/** Tombol kirim samar selama kotak kosong, putih penuh begitu ada 1 karakter. */
+function syncSend() {
+  sendBtn.classList.toggle("is-off", input.value.length === 0);
+}
 
 /* ---------------- api ---------------- */
 
@@ -462,6 +468,7 @@ async function sendChat(ev) {
   sendBtn.disabled = true;
   input.value = "";
   input.style.height = "auto";
+  syncSend();
   let shell = null;
 
   try {
@@ -497,7 +504,7 @@ async function sendChat(ev) {
     const res = await fetch("/api/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, thinking: thinkingSel.value || null }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
@@ -556,7 +563,9 @@ input.addEventListener("keydown", (e) => {
 input.addEventListener("input", () => {
   input.style.height = "auto";
   input.style.height = Math.min(input.scrollHeight, 240) + "px";
+  syncSend();
 });
+syncSend();
 
 /* ---------------- view switch ---------------- */
 
