@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Klasifikasi Cognitive Presence — CoI</title>
+<title>Klasifikasi Cognitive Presence (CoI)</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -74,18 +74,10 @@
               <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             <div class="menu hidden" data-menu-list role="listbox" aria-label="Reasoning effort">
-              <button type="button" class="menu-item" data-value="off" data-label="Instant" role="option">
-                <span><b>Instant</b><small>Tanpa reasoning — paling cepat</small></span><span class="check">✓</span>
-              </button>
-              <button type="button" class="menu-item" data-value="low" data-label="Low" role="option">
-                <span><b>Low</b><small>Reasoning singkat</small></span><span class="check">✓</span>
-              </button>
-              <button type="button" class="menu-item" data-value="high" data-label="High" role="option">
-                <span><b>High</b><small>Seimbang — setelan server</small></span><span class="check">✓</span>
-              </button>
-              <button type="button" class="menu-item" data-value="max" data-label="Max" role="option">
-                <span><b>Max</b><small>Penalaran terdalam, paling lambat</small></span><span class="check">✓</span>
-              </button>
+              <button type="button" class="menu-item" data-value="off" data-label="Instant" role="option">Instant<span class="check">✓</span></button>
+              <button type="button" class="menu-item" data-value="low" data-label="Low" role="option">Low<span class="check">✓</span></button>
+              <button type="button" class="menu-item" data-value="high" data-label="High" role="option">High<span class="check">✓</span></button>
+              <button type="button" class="menu-item" data-value="max" data-label="Max" role="option">Max<span class="check">✓</span></button>
             </div>
             <input type="hidden" id="chat-thinking" value="high">
           </div>
@@ -101,7 +93,7 @@
       <header class="topbar">
         <div>
           <h1>Upload CSV</h1>
-          <p>Kolom <code>text</code> wajib. Kolom <code>label</code> opsional — kalau ada, akurasi &amp; F1 dihitung.</p>
+          <p>Kolom <code>text</code> wajib. Kolom <code>label</code> opsional: kalau ada, akurasi &amp; F1 dihitung.</p>
         </div>
       </header>
 
@@ -122,21 +114,11 @@
                   <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 <div class="menu hidden" data-menu-list role="listbox" aria-label="Reasoning effort batch">
-                  <button type="button" class="menu-item" data-value="" data-label="Default" role="option">
-                    <span><b>Default</b><small>Ikut setelan server (high)</small></span><span class="check">✓</span>
-                  </button>
-                  <button type="button" class="menu-item" data-value="off" data-label="Instant" role="option">
-                    <span><b>Instant</b><small>Tanpa reasoning — paling cepat</small></span><span class="check">✓</span>
-                  </button>
-                  <button type="button" class="menu-item" data-value="low" data-label="Low" role="option">
-                    <span><b>Low</b><small>Reasoning singkat</small></span><span class="check">✓</span>
-                  </button>
-                  <button type="button" class="menu-item" data-value="high" data-label="High" role="option">
-                    <span><b>High</b><small>Seimbang</small></span><span class="check">✓</span>
-                  </button>
-                  <button type="button" class="menu-item" data-value="max" data-label="Max" role="option">
-                    <span><b>Max</b><small>Penalaran terdalam, paling lambat</small></span><span class="check">✓</span>
-                  </button>
+                  <button type="button" class="menu-item" data-value="" data-label="Default" role="option">Default<span class="check">✓</span></button>
+                  <button type="button" class="menu-item" data-value="off" data-label="Instant" role="option">Instant<span class="check">✓</span></button>
+                  <button type="button" class="menu-item" data-value="low" data-label="Low" role="option">Low<span class="check">✓</span></button>
+                  <button type="button" class="menu-item" data-value="high" data-label="High" role="option">High<span class="check">✓</span></button>
+                  <button type="button" class="menu-item" data-value="max" data-label="Max" role="option">Max<span class="check">✓</span></button>
                 </div>
                 <input type="hidden" id="batch-thinking" value="">
               </div>

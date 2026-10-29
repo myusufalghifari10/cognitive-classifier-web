@@ -598,7 +598,7 @@ function setFile(file) {
   if (!file) return;
   pickedFile = file;
   $("#drop-title").textContent = file.name;
-  $("#drop-sub").textContent = `${(file.size / 1024).toFixed(1)} KB — siap diklasifikasi`;
+  $("#drop-sub").textContent = `${(file.size / 1024).toFixed(1)} KB, siap diklasifikasi`;
   $("#batch-start").disabled = false;
 }
 
@@ -654,7 +654,7 @@ function appendRow(rec) {
   tr.innerHTML = `
     <td class="idx">${rec.idx}</td>
     <td class="pred"><span class="badge ${rec.pred}">${rec.pred}</span></td>
-    <td class="gold">${rec.gold || "—"}</td>
+    <td class="gold">${rec.gold || "-"}</td>
     <td class="reason"></td>
     <td class="idx">${(rec.latency_ms / 1000).toFixed(1)}s</td>`;
   tr.querySelector(".reason").textContent = rec.reason || rec.error || "";

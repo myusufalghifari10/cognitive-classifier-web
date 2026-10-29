@@ -1,5 +1,5 @@
 /* ============================================================================
-   Cognitive Presence — design layer
+   Cognitive Presence: design layer
    Bahasa visual: permukaan bertingkat (canvas → panel → elevated), bukan garis
    pemisah. Border 1px hanya dipakai sebagai hairline di dalam tabel/menu.
    ========================================================================== */
@@ -266,8 +266,8 @@ details.think[open] summary::before { content: "▾"; }
 
 .menu {
   position: absolute; right: 0; bottom: calc(100% + 10px); z-index: 40;
-  min-width: 262px; padding: 6px;
-  background: var(--elevated); border-radius: 16px;
+  min-width: 168px; padding: 6px;
+  background: var(--elevated); border-radius: 14px;
   box-shadow: 0 20px 44px oklch(0 0 0 / 55%), 0 0 0 1px oklch(1 0 0 / 6%);
   animation: menu-in .14s ease-out both;
 }
@@ -275,16 +275,15 @@ details.think[open] summary::before { content: "▾"; }
 @media (prefers-reduced-motion: reduce) { .menu { animation: none; } }
 
 .menu-item {
-  display: flex; align-items: flex-start; gap: 10px; width: 100%;
-  padding: 9px 10px; border: 0; border-radius: 10px;
-  background: transparent; color: var(--fg); text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 11px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--fg);
+  font-size: 13.5px; text-align: left; cursor: pointer;
+  transition: background .12s;
 }
 .menu-item:hover { background: oklch(1 0 0 / 7%); }
-.menu-item b { display: block; font-size: 13.5px; font-weight: 500; }
-.menu-item small { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted-fg); line-height: 1.45; }
-.menu-item .check { margin-left: auto; color: var(--accent); opacity: 0; font-size: 13px; line-height: 1.4; }
+.menu-item .check { margin-left: auto; color: var(--accent); opacity: 0; font-size: 12px; }
 .menu-item.active .check { opacity: 1; }
-.menu-sep { height: 1px; margin: 5px 8px; background: var(--hair); }
 
 /* ---------- batch ---------- */
 .batch-grid {
