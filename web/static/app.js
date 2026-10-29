@@ -814,10 +814,24 @@ function download(filename, text, type = "application/json") {
 
 async function copyText(text) {
   try {
-    await navigator.clipboard.writeText(text);
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error("clipboard API tidak tersedia");
+    }
     toast("Disalin ke clipboard");
   } catch {
-    alert("Browser menolak akses clipboard. Pakai Unduh JSON/Markdown.");
+    // Cadangan untuk browser yang menolak clipboard API: textarea + execCommand.
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand?.("copy");
+    ta.remove();
+    if (ok) toast("Disalin ke clipboard");
+    else alert("Browser menolak akses clipboard. Pakai Unduh JSON atau Unduh Markdown.");
   }
 }
 
@@ -883,6 +897,7 @@ function toPlain(env) {
 const ctx = $("#ctx");
 let ctxId = null;
 let ctxItem = null;
+let ctxAnchor = null;
 
 const ICON = {
   rename: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
@@ -905,14 +920,15 @@ function placeCtx(anchor) {
 
 function openCtx(anchor, id) {
   ctxId = id;
+  ctxAnchor = anchor;
   ctxItem = anchor.closest(".session-item");
   renderCtxMain();
-  placeCtx(anchor);
 }
 
 function closeCtx() {
   ctx.classList.add("hidden");
   ctxId = null;
+  ctxAnchor = null;
 }
 
 function renderCtxMain() {
@@ -925,6 +941,7 @@ function renderCtxMain() {
     <button class="ctx-item" data-ctx="multi">${ICON.multi} Pilih banyak</button>
     <div class="ctx-sep"></div>
     <button class="ctx-item danger" data-ctx="delete">${ICON.trash} Hapus</button>`;
+  if (ctxAnchor) placeCtx(ctxAnchor);
 }
 
 function renderCtxShare() {
@@ -937,13 +954,18 @@ function renderCtxShare() {
     <button class="ctx-item" data-ctx="cp-text">Copy teks biasa</button>
     <button class="ctx-item" data-ctx="cp-md">Copy Markdown</button>
     <button class="ctx-item" data-ctx="cp-json">Copy JSON</button>`;
+  if (ctxAnchor) placeCtx(ctxAnchor);
 }
 
 ctx.addEventListener("click", async (e) => {
+  // Wajib: klik "Bagikan" mengganti isi #ctx, sehingga e.target tidak lagi
+  // berada di dalam #ctx. Listener document di bawah akan menganggapnya klik
+  // di luar dan langsung menutup menu (submenu cuma berkedip).
+  e.stopPropagation();
   const act = e.target.closest("[data-ctx]")?.dataset.ctx;
   if (!act) return;
-  if (act === "back") return renderCtxMain();
-  if (act === "share") return renderCtxShare();
+  if (act === "back") { renderCtxMain(); return; }
+  if (act === "share") { renderCtxShare(); return; }
   if (act === "import") { closeCtx(); $("#import-file").click(); return; }
   const id = ctxId;
   const s = state.sessions.find((x) => x.id === id);
@@ -970,8 +992,9 @@ ctx.addEventListener("click", async (e) => {
 $("#side-menu").addEventListener("click", (e) => {
   e.stopPropagation();
   ctxId = null;
+  ctxAnchor = e.currentTarget;
   ctx.innerHTML = `<button class="ctx-item" data-ctx="import">Impor sesi (.json)</button>`;
-  placeCtx(e.currentTarget);
+  placeCtx(ctxAnchor);
 });
 
 document.addEventListener("click", (e) => {
