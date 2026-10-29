@@ -213,6 +213,13 @@ async def classify(client, text: str, *, mode: str = "few", model: str = DEFAULT
         answer, thinking_txt = split_think_answer(raw, reasoning)
         pred, reason = parse_label(answer)
         if not pred and thinking_txt:
+            # Reasoning yang TERPOTONG (finish=length) tidak boleh dikorek labelnya:
+            # label yang muncul di tengah rantai berpikir masih pertimbangan, bukan
+            # kesimpulan. Naikkan budget dulu; korek hanya bila budget sudah mentok.
+            if finish == "length" and budget < max_budget:
+                budget = min(budget * 2, max_budget)
+                err = f"thinking terpotong, retry budget={budget}"
+                continue
             pred, reason = parse_label(thinking_txt)
             if pred:
                 answer = thinking_txt
