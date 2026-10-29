@@ -204,12 +204,16 @@ async def api_create_job(file: UploadFile = File(...), thinking: str = Form(""))
 
 
 @app.get("/api/jobs/{job_id}")
-async def api_job(job_id: str, after: int = -1):
-    """Status + record dengan idx > `after` (client kirim idx terakhir yang sudah dilihat)."""
+async def api_job(job_id: str, offset: int = 0):
+    """Status + record setelah `offset` (client mengirim jumlah record yang sudah diterima).
+
+    Kursor berbasis jumlah, bukan idx: baris selesai tidak berurutan (paralel), jadi
+    filter `idx > after` melewatkan baris yang selesai belakangan dengan idx lebih kecil.
+    """
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(404, "Job tidak ditemukan.")
-    fresh = sorted((r for r in job["records"] if r["idx"] > after), key=lambda r: r["idx"])
+    fresh = job["records"][max(0, offset):]
     return {"id": job_id, "status": job["status"], "done": job["done"], "total": job["total"],
             "records": fresh, "metrics": job["metrics"], "usage": job["usage"],
             "elapsed_s": job.get("elapsed_s"), "n_parse_fail": job.get("n_parse_fail"),

@@ -220,7 +220,6 @@ async function openSession(id) {
 /** Tampilkan sesi hasil CSV: tabel + metrik + unduhan; lanjut polling kalau masih jalan. */
 function renderBatchSession(data) {
   state.rows = (data.records || []).slice().sort((a, b) => a.idx - b.idx);
-  const after = state.rows.length ? state.rows[state.rows.length - 1].idx : -1;
 
   $("#result-panel").classList.remove("hidden");
   $("#result-session").textContent = data.title || "";
@@ -233,7 +232,7 @@ function renderBatchSession(data) {
   setProgress(data.records?.length || 0, data.total || 0);
 
   if (data.status === "queued" || data.status === "running") {
-    startPoll(data.id, data.job_id, after);
+    startPoll(data.id, data.job_id, state.rows.length);
     return;
   }
   finishJob({ metrics: data.metrics, usage: data.usage, elapsed_s: data.elapsed_s,
@@ -248,9 +247,9 @@ function stopPoll() {
   state.poll = null;
 }
 
-function startPoll(sessionId, jobId, after) {
+function startPoll(sessionId, jobId, offset) {
   stopPoll();
-  state.poll = { sessionId, jobId, after, timer: null };
+  state.poll = { sessionId, jobId, offset, timer: null };
   tick();
 }
 
@@ -258,13 +257,13 @@ async function tick() {
   const p = state.poll;
   if (!p) return;
   try {
-    const res = await fetch(`/api/jobs/${p.jobId}?after=${p.after}`);
+    const res = await fetch(`/api/jobs/${p.jobId}?offset=${p.offset}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
     if (state.poll !== p) return;          // user pindah sesi: hentikan render
 
     for (const rec of data.records) {
-      p.after = Math.max(p.after, rec.idx);
+      p.offset += 1;
       state.rows.push(rec);
       appendRow(rec);
     }
@@ -725,7 +724,7 @@ $("#batch-start").addEventListener("click", async () => {
                              n_rows: data.total, status: "running" });
     renderSessionList();
     setProgress(0, data.total);
-    startPoll(data.session_id, data.job_id, -1);
+    startPoll(data.session_id, data.job_id, 0);
   } catch (err) {
     $("#result-panel").classList.remove("hidden");
     $("#metrics").innerHTML = `<div class="metric"><span>error</span><strong>gagal</strong></div>`;
@@ -747,7 +746,7 @@ function appendRow(rec) {
   if (rec.gold && rec.pred !== rec.gold) tr.classList.add("wrong");
   tr.innerHTML = `
     <td class="idx">${rec.idx}</td>
-    <td class="pred"><span class="badge ${rec.pred}">${rec.pred}</span></td>
+    <td class="pred">${rec.pred}</td>
     <td class="gold">${rec.gold || "-"}</td>
     <td class="reason"></td>
     <td class="idx">${(rec.latency_ms / 1000).toFixed(1)}s</td>`;
@@ -764,6 +763,9 @@ $("#only-wrong").addEventListener("change", rerenderRows);
 
 function finishJob(data) {
   $("#batch-start").disabled = false;
+  // Job selesai: urutkan tabel per idx (saat berjalan, baris muncul sesuai urutan selesai).
+  state.rows.sort((a, b) => a.idx - b.idx);
+  rerenderRows();
   const m = data.metrics || {};
   const chips = [];
   if (m.n_gold) {

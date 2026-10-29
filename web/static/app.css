@@ -376,8 +376,10 @@ tbody td { padding: 10px 12px; box-shadow: inset 0 -1px 0 oklch(1 0 0 / 5%); ver
 tbody tr:hover { background: oklch(1 0 0 / 3%); }
 td.idx { font-family: var(--mono); color: var(--muted-fg); }
 td.reason { color: var(--fg-soft); max-width: 440px; }
-tr.wrong td.pred { color: oklch(0.72 0.18 25); }
-td.gold { color: var(--muted-fg); }
+td.pred { font-family: var(--mono); color: var(--muted-fg); }
+td.gold { font-family: var(--mono); color: var(--muted-fg); }
+/* Baris yang salah ditandai latar tipis, tanpa mewarnai labelnya. */
+tr.wrong { background: oklch(0.72 0.18 25 / 6%); }
 
 .hidden { display: none !important; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }

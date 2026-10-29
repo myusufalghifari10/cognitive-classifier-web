@@ -101,6 +101,11 @@ Reproduksi ulang:
   memperingatkan content bisa kosong → parser 3 lapis (JSON utuh → JSON terkubun →
   regex `C[0-4]`) plus fallback ke `reasoning_content`, sama seperti `eval.py` lama.
 - Thinking default ON (`--thinking` di CLI / dropdown di UI: low/high/max/off).
+- **Kursor polling pakai jumlah record, bukan idx.** Baris selesai tidak berurutan
+  (paralel), jadi `GET /api/jobs/{id}?offset=N` mengembalikan `records[N:]` sesuai
+  urutan selesai. Versi lama menyaring `idx > after` sehingga baris yang selesai
+  belakangan dengan idx lebih kecil hilang selamanya (gejala: tabel CSV cuma terisi
+  21 dari 120 baris, filter "hanya salah" jadi 1 baris).
 - Diukur pada 6 sampel: input 1.122 token cache-miss + 43.005 cache-hit, output 6.615
   → **±$0.0014/post** saat harga peak (prompt cache aktif, karena system prompt sama
   untuk semua post).
