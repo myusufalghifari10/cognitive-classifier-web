@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klasifikasi Cognitive Presence — CoI</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div>
+        <strong>Cognitive Presence</strong>
+        <small>Community of Inquiry · 5 kelas</small>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="chat">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Klasifikasi Teks
+      </button>
+      <button class="nav-item" data-view="batch">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+        Upload CSV
+      </button>
+    </nav>
+
+    <div class="side-section">
+      <h4>Kelas</h4>
+      <ul class="legend" id="legend"></ul>
+    </div>
+
+    <div class="side-footer">
+      <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">memeriksa…</span></div>
+      <small id="model-line">—</small>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ============ CHAT ============ -->
+    <section class="view active" id="view-chat">
+      <header class="topbar">
+        <div>
+          <h1>Klasifikasi Teks</h1>
+          <p>Tempel satu postingan diskusi, dapatkan label + alasan.</p>
+        </div>
+        <label class="field inline">
+          <span>Prompt</span>
+          <select id="chat-mode">
+            <option value="few">Few-shot</option>
+            <option value="zero">Zero-shot</option>
+          </select>
+        </label>
+      </header>
+
+      <div class="thread" id="thread">
+        <div class="empty" id="chat-empty">
+          <div class="empty-badge">CoI</div>
+          <h2>Apa Cognitive Presence postingan ini?</h2>
+          <p>Model memilih tepat satu dari lima kelas dan menjelaskan tindakan kognitif penulisnya.</p>
+          <div class="chips" id="chat-chips"></div>
+        </div>
+      </div>
+
+      <form class="composer" id="composer">
+        <textarea id="chat-input" rows="1" placeholder="Tempel postingan diskusi di sini… (Enter untuk kirim, Shift+Enter baris baru)"></textarea>
+        <button type="submit" class="send" id="chat-send" aria-label="Kirim">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </section>
+
+    <!-- ============ BATCH ============ -->
+    <section class="view" id="view-batch">
+      <header class="topbar">
+        <div>
+          <h1>Upload CSV</h1>
+          <p>Kolom <code>text</code> wajib. Kolom <code>label</code> opsional — kalau ada, akurasi &amp; F1 dihitung.</p>
+        </div>
+      </header>
+
+      <div class="batch-grid">
+        <div class="panel">
+          <label class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+            <strong id="drop-title">Letakkan CSV di sini atau klik</strong>
+            <small id="drop-sub">maks 1000 baris per run</small>
+          </label>
+
+          <div class="controls">
+            <label class="field"><span>Prompt</span>
+              <select id="batch-mode"><option value="few">Few-shot</option><option value="zero">Zero-shot</option></select>
+            </label>
+            <label class="field"><span>Thinking</span>
+              <select id="batch-thinking">
+                <option value="">default</option><option value="low">low</option>
+                <option value="high">high</option><option value="max">max</option><option value="off">off</option>
+              </select>
+            </label>
+            <label class="field"><span>Paralel</span>
+              <input type="number" id="batch-conc" value="8" min="1" max="16">
+            </label>
+            <button class="primary" id="batch-start" disabled>Mulai klasifikasi</button>
+          </div>
+
+          <div class="progress hidden" id="progress-wrap">
+            <div class="progress-head"><span id="progress-label">0 / 0</span><span id="progress-pct">0%</span></div>
+            <div class="bar"><i id="progress-bar"></i></div>
+          </div>
+        </div>
+
+        <div class="panel result-panel hidden" id="result-panel">
+          <div class="result-head">
+            <h3>Hasil</h3>
+            <div class="downloads">
+              <a class="ghost" data-kind="csv" href="#">CSV</a>
+              <a class="ghost" data-kind="report" href="#">Report</a>
+              <a class="ghost" data-kind="png" href="#">Confusion</a>
+              <a class="ghost" data-kind="jsonl" href="#">JSONL</a>
+            </div>
+          </div>
+          <div class="metrics" id="metrics"></div>
+          <div class="table-tools hidden" id="table-tools">
+            <label class="check"><input type="checkbox" id="only-wrong"> hanya salah klasifikasi</label>
+          </div>
+          <div class="table-scroll">
+            <table id="result-table">
+              <thead><tr><th>#</th><th>Prediksi</th><th>Gold</th><th>Alasan</th><th>Latency</th></tr></thead>
+              <tbody id="result-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
