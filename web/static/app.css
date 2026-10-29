@@ -177,10 +177,6 @@ button { font: inherit; color: inherit; }
 .badge.C2 { color: var(--c2); } .badge.C3 { color: var(--c3); }
 .badge.C4 { color: var(--c4); } .badge.FAIL { color: oklch(0.66 0.2 25); }
 .card-head .class-name { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
-.card-head .meta {
-  margin-left: auto; font-size: 11.5px; color: var(--muted-fg);
-  font-family: var(--mono); opacity: 0.75;
-}
 .reason { font-size: 15px; line-height: 1.74; color: var(--fg-soft); }
 
 /* Panel proses berpikir: Toggle di ATAS jawaban, isi tergulung di bawah toggle

@@ -470,11 +470,6 @@ function cardHtml(rec, thinkText) {
   const isFail = !state.labels.includes(rec.pred);
   const idx = state.labels.indexOf(rec.pred);
   const cls = isFail ? "FAIL" : rec.pred;
-  const meta = [
-    rec.latency_ms ? `${(rec.latency_ms / 1000).toFixed(1)}s` : "",
-    rec.finish || "",
-    rec.budget ? `budget ${rec.budget}` : "",
-  ].filter(Boolean).join(" · ");
   const thinkLabel = rec.latency_ms
     ? `Proses berpikir · ${(rec.latency_ms / 1000).toFixed(1)}s`
     : "Proses berpikir";
@@ -482,7 +477,6 @@ function cardHtml(rec, thinkText) {
     <div class="card-head">
       <span class="badge ${cls}">${rec.pred}</span>
       <span class="class-name">${isFail ? "tidak terparse" : state.names[idx] || ""}</span>
-      <span class="meta">${meta}</span>
     </div>
     ${thinkText ? `<details class="think"><summary>${THINK_IC}${thinkLabel}${THINK_CHEV}</summary><div class="think-body"></div></details>` : ""}
     <div class="reason"></div>`;
