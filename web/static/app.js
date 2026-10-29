@@ -492,8 +492,7 @@ function renderThread(messages) {
 function appendUser(text) {
   const wrap = document.createElement("div");
   wrap.className = "msg user";
-  wrap.innerHTML = `<div class="avatar">YOU</div>
-    <div class="body"><div class="who">Postingan</div><div class="text"></div></div>`;
+  wrap.innerHTML = `<div class="body"><div class="text"></div></div>`;
   wrap.querySelector(".text").textContent = text;
   threadInner.appendChild(wrap);
   showThread();
@@ -530,8 +529,7 @@ function fillCard(card, rec, thinkText) {
 function assistantShell() {
   const wrap = document.createElement("div");
   wrap.className = "msg assistant";
-  wrap.innerHTML = `<div class="avatar">AI</div>
-    <div class="body"><div class="who">Klasifikator CoI</div>
+  wrap.innerHTML = `<div class="body">
       <div class="card">
         <details class="think hidden"><summary>${THINK_IC}Proses berpikir${THINK_CHEV}</summary><div class="think-body"></div></details>
         <div class="pending"><span class="pulse"></span><span class="pending-text">menganalisis…</span></div>
