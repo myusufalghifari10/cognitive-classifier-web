@@ -135,17 +135,16 @@ async def _run_job(job: dict, rows: list[dict]) -> None:
 
     try:
         res = await batch.run(rows, Path(job["dir"]), mode=job["mode"],
-                              thinking=job["thinking"], concurrency=job["concurrency"],
-                              on_record=on_record)
+                              thinking=job["thinking"], on_record=on_record)
         job.update(status="done", metrics=res["metrics"], usage=res["usage"],
-                   elapsed_s=res["elapsed_s"], n_parse_fail=res["n_parse_fail"])
+                   elapsed_s=res["elapsed_s"], n_parse_fail=res["n_parse_fail"],
+                   parallel=res["parallel"])
     except Exception as exc:                              # noqa: BLE001 — tampil di UI
         job.update(status="error", error=f"{type(exc).__name__}: {exc}")
 
 
 @app.post("/api/jobs")
-async def api_create_job(file: UploadFile = File(...),
-                         thinking: str = Form(""), concurrency: int = Form(8)):
+async def api_create_job(file: UploadFile = File(...), thinking: str = Form("")):
     raw = await file.read()
     job_id = uuid.uuid4().hex[:12]
     job_dir = RUNS / job_id
@@ -161,8 +160,7 @@ async def api_create_job(file: UploadFile = File(...),
         raise HTTPException(400, f"CSV berisi {len(rows)} baris, batas {MAX_ROWS} per run.")
 
     job = {"id": job_id, "status": "queued", "total": len(rows), "done": 0, "records": [],
-           "mode": "few", "thinking": thinking or None,
-           "concurrency": max(1, min(int(concurrency or 8), 16)), "dir": str(job_dir),
+           "mode": "few", "thinking": thinking or None, "dir": str(job_dir),
            "metrics": None, "usage": None, "error": None, "filename": file.filename,
            "created": datetime.now().isoformat(timespec="seconds")}
     JOBS[job_id] = job

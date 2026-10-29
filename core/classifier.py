@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import random
 import re
 import time
 from pathlib import Path
@@ -206,7 +207,7 @@ async def classify(client, text: str, *, mode: str = "few", model: str = DEFAULT
         except (httpx.HTTPError, json.JSONDecodeError, ValueError) as e:
             err = f"{type(e).__name__}: {e}"
             if attempt < 3:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2 ** attempt + random.uniform(0, 0.5))
             continue
 
         answer, thinking_txt = split_think_answer(raw, reasoning)

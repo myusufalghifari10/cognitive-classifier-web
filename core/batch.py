@@ -91,7 +91,7 @@ def compute_metrics(records: list[dict]) -> dict:
 
 
 def write_artifacts(records: list[dict], out: Path, *, mode: str, model: str,
-                    thinking: str | None, elapsed: float) -> dict:
+                    thinking: str | None, elapsed: float, parallel: int = 0) -> dict:
     """Tulis predictions.jsonl, results.csv, report.txt (+png kalau ada gold)."""
     out.mkdir(parents=True, exist_ok=True)
     tag = f"{mode}shot"
@@ -114,6 +114,8 @@ def write_artifacts(records: list[dict], out: Path, *, mode: str, model: str,
         fh.write(f"Model          : {model}\n")
         fh.write(f"response_format: json_object (DeepSeek API)\n")
         fh.write(f"Thinking       : {thinking or 'default server'}\n")
+        if parallel:
+            fh.write(f"Paralel        : 1 warm-up + sisa maks {parallel}\n")
         fh.write(f"Sampel         : {len(records)} (parse_fail={n_fail})\n")
         fh.write(f"Total waktu    : {elapsed:.1f}s ({elapsed / len(records):.1f}s/sampel)\n")
         u = usage_summary(records)
@@ -153,14 +155,22 @@ def write_artifacts(records: list[dict], out: Path, *, mode: str, model: str,
     return m
 
 
+DEFAULT_CAP = 64         # batas request paralel setelah baris warm-up
+
+
 async def run(rows: list[dict], out: Path, *, mode: str = "few", model: str = classifier.DEFAULT_MODEL,
-              thinking: str | None = None, concurrency: int = 8, max_tokens: int = 4096,
-              on_record=None) -> dict:
-    """Klasifikasi semua baris (paralel, urutan hasil tetap sesuai idx)."""
+              thinking: str | None = None, concurrency: int = DEFAULT_CAP,
+              max_tokens: int = 4096, on_record=None) -> dict:
+    """Klasifikasi semua baris. Baris pertama dikirim SENDIRIAN lalu ditunggu:
+    itu mengisi KV-cache prompt di server DeepSeek, jadi sisa baris membayar
+    harga cache-hit, bukan cache-miss (input ~50x lebih murah). Setelah itu
+    baris sisanya dilepas paralel, dibatasi `concurrency`.
+    """
     records: list[dict | None] = [None] * len(rows)
     done = 0
     t0 = time.time()
-    sem = asyncio.Semaphore(max(1, concurrency))
+    cap = max(1, min(int(concurrency or DEFAULT_CAP), len(rows) or 1))
+    sem = asyncio.Semaphore(cap)
 
     async with classifier.make_client() as client:
         async def one(row: dict):
@@ -177,13 +187,17 @@ async def run(rows: list[dict], out: Path, *, mode: str = "few", model: str = cl
                 await on_record(rec, done, len(rows))
             return rec
 
-        await asyncio.gather(*(one(r) for r in rows))
+        # 1) warm-up: satu request, ditunggu sampai selesai
+        await one(rows[0])
+        # 2) sisanya serentak (dibatasi cap)
+        await asyncio.gather(*(one(r) for r in rows[1:]))
 
     elapsed = time.time() - t0
     final = [r for r in records if r is not None]
-    m = write_artifacts(final, out, mode=mode, model=model, thinking=thinking, elapsed=elapsed)
+    m = write_artifacts(final, out, mode=mode, model=model, thinking=thinking,
+                        elapsed=elapsed, parallel=cap)
     return {"metrics": m, "elapsed_s": round(elapsed, 1), "n": len(final),
-            "usage": usage_summary(final),
+            "usage": usage_summary(final), "parallel": cap,
             "n_parse_fail": sum(1 for r in final if r["pred"] not in classifier.LABELS)}
 
 
@@ -195,7 +209,8 @@ async def _main() -> None:
     ap.add_argument("--mode", choices=["few", "zero"], default="few")
     ap.add_argument("--model", default=classifier.DEFAULT_MODEL)
     ap.add_argument("--thinking", choices=["off", "low", "high", "max"], default=None)
-    ap.add_argument("--concurrency", type=int, default=8)
+    ap.add_argument("--concurrency", type=int, default=DEFAULT_CAP,
+                    help=f"batas request paralel setelah warm-up 1 baris (default {DEFAULT_CAP})")
     ap.add_argument("--max-tokens", type=int, default=4096)
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()

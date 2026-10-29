@@ -34,7 +34,8 @@ keperluan benchmarking, bukan lewat app.
   model di-stream live (SSE) dan bisa dibuka lewat "proses berpikir".
 - **Upload CSV** — kolom `text` wajib, kolom `label` (atau `gold`/`kelas`) opsional.
   Kalau ada gold: akurasi, macro-F1, weighted-F1, per-class, confusion matrix.
-  Batas 1000 baris per run, paralel 1–16.
+  Batas 1000 baris per run. Paralel otomatis: baris pertama dikirim sendirian
+  dulu (mengisi KV-cache prompt di DeepSeek), baru sisanya serentak maks 64.
 - **Unduhan** — `CSV` (teks + label + alasan), `Report` (teks polos seperti report
   benchmark), `Confusion` (PNG), `JSONL` (record per sampel).
 - Biaya per run ditampilkan sebagai estimasi dari `usage` token DeepSeek.
@@ -86,3 +87,16 @@ Reproduksi ulang:
 - Diukur pada 6 sampel: input 1.122 token cache-miss + 43.005 cache-hit, output 6.615
   → **±$0.0014/post** saat harga peak (prompt cache aktif, karena system prompt sama
   untuk semua post).
+- **Warm-up dulu, lalu paralel.** Diuji dengan prompt sengaja dibuat dingin (prefix
+  unik) pada 6 baris:
+
+  | cara kirim | input miss | input hit |
+  |---|---|---|
+  | 1 baris ditunggu, lalu 5 serentak | 9.633 | 34.560 |
+  | 6 serentak dari awal | **44.199** | **0** |
+
+  Artinya tanpa warm-up, run pertama (atau run pertama setelah prompt diubah)
+  membayar **seluruh** input di harga miss ($0,3/M) bukan hit ($0,006/M) — 50×
+  lebih mahal pada komponen input. Ini alasan knob "paralel" dihapus dari UI.
+- Retry pakai backoff `2**attempt + jitter` supaya request yang gagal tidak
+  mencoba ulang serempak.

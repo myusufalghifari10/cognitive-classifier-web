@@ -495,7 +495,6 @@ $("#batch-start").addEventListener("click", async () => {
   const fd = new FormData();
   fd.append("file", pickedFile);
   fd.append("thinking", $("#batch-thinking").value);
-  fd.append("concurrency", $("#batch-conc").value);
 
   try {
     const res = await fetch("/api/jobs", { method: "POST", body: fd });
