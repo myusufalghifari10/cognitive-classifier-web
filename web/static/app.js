@@ -268,6 +268,7 @@ async function tick() {
       appendRow(rec);
     }
     setProgress(data.done, data.total);
+    syncWrong();
 
     if (data.status === "done" || data.status === "error") {
       finishJob(data);
@@ -661,6 +662,8 @@ function newBatchView() {
   $("#result-body").innerHTML = "";
   $("#table-tools").classList.add("hidden");
   $("#only-wrong").checked = false;
+  $("#wrong-count").textContent = "";
+  $("#wrong-pill").classList.remove("on");
   document.querySelectorAll(".downloads .ghost").forEach((a) => a.classList.add("disabled"));
   setProgress(0, 0);
   renderSessionList();
@@ -743,7 +746,6 @@ function setProgress(done, total) {
 function appendRow(rec) {
   if ($("#only-wrong").checked && rec.gold && rec.pred === rec.gold) return;
   const tr = document.createElement("tr");
-  if (rec.gold && rec.pred !== rec.gold) tr.classList.add("wrong");
   tr.innerHTML = `
     <td class="idx">${rec.idx}</td>
     <td class="pred">${rec.pred}</td>
@@ -757,6 +759,14 @@ function appendRow(rec) {
 function rerenderRows() {
   $("#result-body").innerHTML = "";
   state.rows.forEach(appendRow);
+  syncWrong();
+}
+
+/** Jumlah baris salah masuk ke label filter; pill menyala saat aktif. */
+function syncWrong() {
+  const n = state.rows.filter((r) => r.gold && r.pred !== r.gold).length;
+  $("#wrong-count").textContent = n ? String(n) : "";
+  $("#wrong-pill").classList.toggle("on", $("#only-wrong").checked);
 }
 
 $("#only-wrong").addEventListener("change", rerenderRows);

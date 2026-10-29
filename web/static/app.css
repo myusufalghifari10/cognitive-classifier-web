@@ -362,8 +362,29 @@ button.primary:disabled { opacity: 0.32; cursor: not-allowed; }
 .metric span { display: block; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted-fg); }
 .metric strong { font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600; }
 
-.table-tools { margin-bottom: 10px; }
-.check { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted-fg); cursor: pointer; }
+.table-tools { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+
+/* Filter "hanya salah": pill, bukan checkbox bawaan OS. */
+.filter-pill {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 13px; border-radius: 999px; cursor: pointer; user-select: none;
+  font-size: 12.5px; color: var(--muted-fg); background: var(--panel-hi);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  transition: background .14s, color .14s, box-shadow .14s;
+}
+.filter-pill:hover { color: var(--fg); background: oklch(1 0 0 / 10%); }
+.filter-pill input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.filter-pill .pill-ic {
+  display: none; width: 13px; height: 13px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.filter-pill.on {
+  color: oklch(0.88 0.05 240); background: oklch(0.7 0.13 240 / 20%);
+  box-shadow: inset 0 0 0 1px oklch(0.7 0.13 240 / 45%);
+}
+.filter-pill.on .pill-ic { display: block; }
+.filter-pill .pill-n { font-variant-numeric: tabular-nums; opacity: .7; }
+.filter-pill .pill-n:empty { display: none; }
 .table-scroll { max-height: 460px; overflow: auto; border-radius: 14px; background: var(--sunken); }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 thead th {
@@ -378,17 +399,18 @@ td.idx { font-family: var(--mono); color: var(--muted-fg); }
 td.reason { color: var(--fg-soft); max-width: 440px; }
 td.pred { font-family: var(--mono); color: var(--muted-fg); }
 td.gold { font-family: var(--mono); color: var(--muted-fg); }
-/* Baris yang salah ditandai latar tipis, tanpa mewarnai labelnya. */
-tr.wrong { background: oklch(0.72 0.18 25 / 6%); }
+/* Baris salah tidak diberi warna: prediksi dan gold tetap abu-abu biasa. */
+tbody tr { transition: background .12s; }
 
 .hidden { display: none !important; }
-::-webkit-scrollbar { width: 9px; height: 9px; }
+/* Scrollbar: tanpa border transparan supaya thumb mentok sampai ujung track. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {
-  background: oklch(1 0 0 / 13%); border-radius: 999px;
-  border: 2px solid transparent; background-clip: content-box;
+  background: oklch(1 0 0 / 15%); border-radius: 999px; min-height: 44px;
 }
-::-webkit-scrollbar-thumb:hover { background: oklch(1 0 0 / 22%); background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: oklch(1 0 0 / 26%); }
 ::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---------- sidebar header + obrolan baru ---------- */
 .side-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex: none; }
