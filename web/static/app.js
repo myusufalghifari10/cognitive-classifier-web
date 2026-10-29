@@ -19,10 +19,9 @@ const state = {
   names: CLASS_NAMES,
   sessions: [],
   active: null,
-  job: null,
   rows: [],
-  after: -1,
   busy: false,
+  poll: null,
 };
 
 const thread = $("#thread");
@@ -108,11 +107,21 @@ function renderSessionList() {
   // Hanya bangun ulang kalau memang perlu: kalau user sedang mengganti nama
   // (ada <input> di dalam list), jangan sentuh DOM-nya.
   if (list.querySelector(".session-rename")) return;
-  list.innerHTML = state.sessions.map((s) => `
+  list.innerHTML = state.sessions.map((s) => {
+    const isBatch = s.kind === "batch";
+    const sub = isBatch
+      ? [`CSV · ${s.n_rows ?? 0} baris`,
+         s.accuracy != null ? `${(s.accuracy * 100).toFixed(1)}%` : null,
+         s.status && s.status !== "done" ? s.status : null].filter(Boolean).join(" · ")
+      : `${s.n_messages} pesan`;
+    return `
     <div class="session-item${s.id === state.active ? " active" : ""}" data-id="${s.id}">
       <button class="session-open" data-act="open">
-        <span class="session-title"></span>
-        <small>${s.n_messages} pesan · ${fmtWhen(s.updated_at)}</small>
+        <span class="session-line">
+          ${isBatch ? '<span class="kind">CSV</span>' : ""}
+          <span class="session-title"></span>
+        </span>
+        <small>${sub} · ${fmtWhen(s.updated_at)}</small>
       </button>
       <div class="session-actions">
         <button data-act="rename" title="Ganti nama" aria-label="Ganti nama">
@@ -122,7 +131,8 @@ function renderSessionList() {
           <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
         </button>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 
   // judul diisi via textContent (judul bisa berasal dari teks user)
   state.sessions.forEach((s) => {
@@ -135,6 +145,7 @@ let openSeq = 0;
 
 async function openSession(id) {
   const seq = ++openSeq;
+  stopPoll();
   let data;
   try {
     data = await api(`/api/sessions/${id}`);
@@ -142,10 +153,86 @@ async function openSession(id) {
     await loadSessions();
     return;
   }
-  if (seq !== openSeq) return;      // klik lain sudah menang; jangan timpa thread
+  if (seq !== openSeq) return;      // klik lain sudah menang; jangan timpa tampilan
   state.active = id;
   renderSessionList();
-  renderThread(data.messages || []);
+  if ((data.kind || "chat") === "batch") {
+    switchView("batch");
+    renderBatchSession(data);
+  } else {
+    switchView("chat");
+    renderThread(data.messages || []);
+  }
+}
+
+/** Tampilkan sesi hasil CSV: tabel + metrik + unduhan; lanjut polling kalau masih jalan. */
+function renderBatchSession(data) {
+  state.rows = (data.records || []).slice().sort((a, b) => a.idx - b.idx);
+  const after = state.rows.length ? state.rows[state.rows.length - 1].idx : -1;
+
+  $("#result-panel").classList.remove("hidden");
+  $("#result-session").textContent = data.title || "";
+  $("#progress-wrap").classList.remove("hidden");
+  $("#metrics").innerHTML = "";
+  $("#result-body").innerHTML = "";
+  $("#only-wrong").checked = false;
+  $("#table-tools").classList.toggle("hidden", !state.rows.some((r) => r.gold));
+  state.rows.forEach(appendRow);
+  setProgress(data.records?.length || 0, data.total || 0);
+
+  if (data.status === "queued" || data.status === "running") {
+    startPoll(data.id, data.job_id, after);
+    return;
+  }
+  finishJob({ metrics: data.metrics, usage: data.usage, elapsed_s: data.elapsed_s,
+              n_parse_fail: data.n_parse_fail, total: data.total, status: data.status,
+              error: data.error, artifacts: data.artifacts });
+}
+
+/* ---------------- batch polling ---------------- */
+
+function stopPoll() {
+  if (state.poll?.timer) clearTimeout(state.poll.timer);
+  state.poll = null;
+}
+
+function startPoll(sessionId, jobId, after) {
+  stopPoll();
+  state.poll = { sessionId, jobId, after, timer: null };
+  tick();
+}
+
+async function tick() {
+  const p = state.poll;
+  if (!p) return;
+  try {
+    const res = await fetch(`/api/jobs/${p.jobId}?after=${p.after}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    if (state.poll !== p) return;          // user pindah sesi: hentikan render
+
+    for (const rec of data.records) {
+      p.after = Math.max(p.after, rec.idx);
+      state.rows.push(rec);
+      appendRow(rec);
+    }
+    setProgress(data.done, data.total);
+
+    if (data.status === "done" || data.status === "error") {
+      finishJob(data);
+      stopPoll();
+      patchSession(p.sessionId, { status: data.status,
+                                  accuracy: data.metrics?.accuracy ?? null });
+      return;
+    }
+    p.timer = setTimeout(tick, 900);
+  } catch (err) {
+    $("#metrics").innerHTML =
+      `<div class="metric"><span>error</span><strong>polling gagal</strong></div>`;
+    $("#batch-start").disabled = false;
+    stopPoll();
+    console.error(err);
+  }
 }
 
 /** Patch satu baris sesi di list tanpa refetch (pola `applyConversationUpdate` llama.cpp). */
@@ -154,8 +241,11 @@ function patchSession(id, res) {
   if (!s) return;
   if (res?.title) s.title = res.title;
   if (res?.n_messages != null) s.n_messages = res.n_messages;
+  if (res?.n_rows != null) s.n_rows = res.n_rows;
+  if (res?.status) s.status = res.status;
+  if (res?.accuracy !== undefined) s.accuracy = res.accuracy;
   s.updated_at = new Date().toISOString();
-  // pesan terbaru -> sesi naik ke atas
+  // pesan/hasil terbaru -> sesi naik ke atas
   state.sessions = [s, ...state.sessions.filter((x) => x.id !== id)];
   renderSessionList();
 }
@@ -221,7 +311,10 @@ async function renameSession(id, item) {
 async function deleteSession(id) {
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return;
-  if (!confirm(`Hapus sesi "${s.title}"? Riwayatnya hilang permanen.`)) return;
+  const isBatch = s.kind === "batch";
+  if (!confirm(isBatch
+    ? `Hapus sesi "${s.title}" dari daftar? Berkas hasil di runs/ tetap tersimpan.`
+    : `Hapus sesi "${s.title}"? Riwayatnya hilang permanen.`)) return;
   try {
     await api(`/api/sessions/${id}`, { method: "DELETE" });
   } catch (err) {
@@ -233,6 +326,9 @@ async function deleteSession(id) {
   // deleteConversation llama.cpp: clearActiveConversation).
   if (state.active === id) {
     state.active = null;
+    stopPoll();
+    $("#result-panel").classList.add("hidden");
+    $("#progress-wrap").classList.add("hidden");
     showEmpty();
   }
   renderSessionList();
@@ -457,13 +553,15 @@ input.addEventListener("input", () => {
 
 /* ---------------- view switch ---------------- */
 
+function switchView(name) {
+  document.querySelectorAll(".nav-item").forEach((b) =>
+    b.classList.toggle("active", b.dataset.view === name));
+  document.querySelectorAll(".view").forEach((v) =>
+    v.classList.toggle("active", v.id === `view-${name}`));
+}
+
 document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-    btn.classList.add("active");
-    $(`#view-${btn.dataset.view}`).classList.add("active");
-  });
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
 });
 
 /* ---------------- batch ---------------- */
@@ -501,18 +599,23 @@ $("#batch-start").addEventListener("click", async () => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
 
-    state.job = data.job_id;
     state.rows = [];
-    state.after = -1;
+    state.active = data.session_id;
     $("#result-body").innerHTML = "";
     $("#metrics").innerHTML = "";
     $("#result-panel").classList.remove("hidden");
+    $("#result-session").textContent = data.title || "Hasil CSV";
     $("#table-tools").classList.toggle("hidden", !data.has_gold);
     $("#progress-wrap").classList.remove("hidden");
     $("#only-wrong").checked = false;
     document.querySelectorAll(".downloads .ghost").forEach((a) => a.classList.add("disabled"));
+    // hasil CSV langsung jadi sesi di sidebar
+    state.sessions.unshift({ id: data.session_id, kind: "batch", title: data.title,
+                             updated_at: new Date().toISOString(), n_messages: 0,
+                             n_rows: data.total, status: "running" });
+    renderSessionList();
     setProgress(0, data.total);
-    poll();
+    startPoll(data.session_id, data.job_id, -1);
   } catch (err) {
     $("#result-panel").classList.remove("hidden");
     $("#metrics").innerHTML = `<div class="metric"><span>error</span><strong>gagal</strong></div>`;
@@ -526,32 +629,6 @@ function setProgress(done, total) {
   $("#progress-label").textContent = `${done} / ${total}`;
   $("#progress-pct").textContent = `${pct}%`;
   $("#progress-bar").style.width = `${pct}%`;
-}
-
-async function poll() {
-  try {
-    const res = await fetch(`/api/jobs/${state.job}?after=${state.after}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-
-    for (const rec of data.records) {
-      state.rows.push(rec);
-      state.after = Math.max(state.after, rec.idx);
-      appendRow(rec);
-    }
-    setProgress(data.done, data.total);
-
-    if (data.status === "done" || data.status === "error") {
-      finishJob(data);
-      return;
-    }
-    setTimeout(poll, 900);
-  } catch (err) {
-    $("#metrics").innerHTML =
-      `<div class="metric"><span>error</span><strong>polling gagal</strong></div>`;
-    $("#batch-start").disabled = false;
-    console.error(err);
-  }
 }
 
 function appendRow(rec) {
@@ -595,8 +672,9 @@ function finishJob(data) {
     .join("");
 
   document.querySelectorAll(".downloads .ghost").forEach((a) => {
-    a.classList.remove("disabled");
-    a.href = `/api/jobs/${state.job}/download/${a.dataset.kind}`;
+    const known = data.artifacts ? data.artifacts[a.dataset.kind] : data.status === "done";
+    a.classList.toggle("disabled", !known);
+    if (known) a.href = `/api/sessions/${state.active}/download/${a.dataset.kind}`;
   });
   if (data.status === "error") {
     $("#metrics").insertAdjacentHTML(

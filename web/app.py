@@ -63,6 +63,25 @@ def _write_session(data: dict) -> None:
     os.replace(tmp, path)          # atomik: session tidak pernah setengah tertulis
 
 
+async def _update_session(session_id: str, **fields) -> None:
+    """Patch sebagian field session (dipakai job batch untuk update status)."""
+    async with _session_lock:
+        try:
+            data = _read_session(session_id)
+        except HTTPException:
+            return
+        data.update(fields)
+        data["updated_at"] = _now()
+        _write_session(data)
+
+
+def _load_batch_records(job_id: str, mode: str) -> list[dict]:
+    path = RUNS / job_id / f"predictions_{mode}shot.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
 def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
@@ -136,11 +155,17 @@ async def _run_job(job: dict, rows: list[dict]) -> None:
     try:
         res = await batch.run(rows, Path(job["dir"]), mode=job["mode"],
                               thinking=job["thinking"], on_record=on_record)
-        job.update(status="done", metrics=res["metrics"], usage=res["usage"],
+        m = res["metrics"]
+        job.update(status="done", metrics=m, usage=res["usage"],
                    elapsed_s=res["elapsed_s"], n_parse_fail=res["n_parse_fail"],
                    parallel=res["parallel"])
+        await _update_session(job["session_id"], status="done", usage=res["usage"],
+                              elapsed_s=res["elapsed_s"], n_parse_fail=res["n_parse_fail"],
+                              parallel=res["parallel"], accuracy=m.get("accuracy"),
+                              macro_f1=m.get("macro_f1"), n_gold=m.get("n_gold", 0))
     except Exception as exc:                              # noqa: BLE001 — tampil di UI
         job.update(status="error", error=f"{type(exc).__name__}: {exc}")
+        await _update_session(job["session_id"], status="error", error=str(exc)[:300])
 
 
 @app.post("/api/jobs")
@@ -162,10 +187,20 @@ async def api_create_job(file: UploadFile = File(...), thinking: str = Form(""))
     job = {"id": job_id, "status": "queued", "total": len(rows), "done": 0, "records": [],
            "mode": "few", "thinking": thinking or None, "dir": str(job_dir),
            "metrics": None, "usage": None, "error": None, "filename": file.filename,
-           "created": datetime.now().isoformat(timespec="seconds")}
+           "created": _now()}
+    # Hasil CSV langsung jadi sesi supaya bisa dibuka lagi dari sidebar.
+    session_id = uuid.uuid4().hex[:12]
+    title = f"CSV · {file.filename or 'upload'}"[:80]
+    async with _session_lock:
+        _write_session({"id": session_id, "kind": "batch", "title": title,
+                        "job_id": job_id, "mode": "few", "thinking": thinking or None,
+                        "total": len(rows), "status": "queued", "messages": [],
+                        "created_at": _now(), "updated_at": _now()})
+    job["session_id"] = session_id
     JOBS[job_id] = job
     asyncio.create_task(_run_job(job, rows))
-    return {"job_id": job_id, "total": len(rows), "has_gold": any(r["gold"] for r in rows)}
+    return {"job_id": job_id, "session_id": session_id, "title": title,
+            "total": len(rows), "has_gold": any(r["gold"] for r in rows)}
 
 
 @app.get("/api/jobs/{job_id}")
@@ -181,19 +216,20 @@ async def api_job(job_id: str, after: int = -1):
             "error": job["error"], "mode": job["mode"]}
 
 
-@app.get("/api/jobs/{job_id}/download/{kind}")
-async def api_download(job_id: str, kind: str):
-    job = JOBS.get(job_id)
-    if not job:
-        raise HTTPException(404, "Job tidak ditemukan.")
+@app.get("/api/sessions/{session_id}/download/{kind}")
+async def api_session_download(session_id: str, kind: str):
+    """Unduh artefak job batch lewat sesinya (bertahan setelah server restart)."""
+    data = _read_session(session_id)
+    if (data.get("kind") or "chat") != "batch":
+        raise HTTPException(400, "Session ini bukan hasil klasifikasi CSV.")
     pattern = ARTIFACTS.get(kind)
     if not pattern:
         raise HTTPException(404, f"Artefak tidak dikenal: {kind}")
-    name = pattern.format(tag=f"{job['mode']}shot")
-    path = Path(job["dir"]) / name
+    name = pattern.format(tag=f"{(data.get('mode') or 'few')}shot")
+    path = RUNS / data["job_id"] / name
     if not path.exists():
-        raise HTTPException(404, f"{name} belum tersedia (job {job['status']}).")
-    return FileResponse(path, filename=f"{job_id}_{name}")
+        raise HTTPException(404, f"{name} belum tersedia (status {data.get('status')}).")
+    return FileResponse(path, filename=f"{session_id}_{name}")
 
 
 # ---------------------------------------------------------------- sessions
@@ -206,9 +242,14 @@ async def api_sessions():
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue                   # satu file rusak jangan menjatuhkan seluruh daftar
-        items.append({"id": data["id"], "title": data.get("title") or "Sesi baru",
+        kind = data.get("kind") or "chat"
+        items.append({"id": data["id"], "kind": kind,
+                      "title": data.get("title") or "Sesi baru",
                       "updated_at": data.get("updated_at"),
-                      "n_messages": len(data.get("messages") or [])})
+                      "n_messages": len(data.get("messages") or []),
+                      "n_rows": data.get("total") if kind == "batch" else None,
+                      "status": data.get("status"),
+                      "accuracy": data.get("accuracy")})
     items.sort(key=lambda x: x["updated_at"] or "", reverse=True)
     return {"sessions": items}
 
@@ -225,7 +266,17 @@ async def api_session_create(payload: dict | None = None):
 
 @app.get("/api/sessions/{session_id}")
 async def api_session_get(session_id: str):
-    return _read_session(session_id)
+    data = _read_session(session_id)
+    if (data.get("kind") or "chat") == "batch":
+        # Record dibaca dari artefak di disk, bukan dari memori: tetap ada setelah restart.
+        records = _load_batch_records(data["job_id"], data.get("mode") or "few")
+        tag = f"{(data.get('mode') or 'few')}shot"
+        job_dir = RUNS / data["job_id"]
+        data["records"] = records
+        data["metrics"] = batch.compute_metrics(records)
+        data["artifacts"] = {k: (job_dir / v.format(tag=tag)).exists()
+                             for k, v in ARTIFACTS.items()}
+    return data
 
 
 @app.patch("/api/sessions/{session_id}")

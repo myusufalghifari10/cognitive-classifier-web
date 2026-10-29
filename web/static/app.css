@@ -306,3 +306,12 @@ tr.wrong td.pred { color: oklch(0.7 0.19 25); }
 .class-defs summary:hover { color: var(--fg); }
 .class-defs .chev { font-size: 13px; transition: transform 0.15s; }
 .class-defs[open] .chev { transform: rotate(90deg); }
+
+/* ---------- sesi: penanda jenis + judul ---------- */
+.session-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.session-line .kind {
+  flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 4px; border-radius: 4px; color: var(--muted-fg);
+  border: 1px solid var(--border); background: oklch(1 0 0 / 6%);
+}
+.result-session { font-weight: 400; color: var(--muted-fg); font-size: 11.5px; }

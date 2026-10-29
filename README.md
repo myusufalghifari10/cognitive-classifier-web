@@ -43,6 +43,12 @@ keperluan benchmarking, bukan lewat app.
   riwayat tetap ada setelah refresh, tutup tab, bahkan restart server. Sesi bisa
   diganti nama dan dihapus dari sidebar. Judul otomatis diambil dari pesan pertama.
   Tiap pesan ditulis dengan `os.replace` (atomik) jadi file tidak pernah setengah jadi.
+- **Hasil CSV juga jadi sesi.** Begitu upload diklasifikasi, job muncul di sidebar
+  sebagai sesi berlabel `CSV` (judul = nama file, subjudul = jumlah baris +
+  akurasi). Klik untuk membuka lagi kapan pun: tabel, metrik, dan tombol unduhan
+  dibangun ulang dari artefak di `runs/<job_id>/`, bukan dari memori — jadi tetap
+  bisa dibuka setelah server restart. Menghapus sesi hanya menghapus entrinya;
+  berkas hasil di `runs/` tetap ada.
 
 ## Struktur
 
