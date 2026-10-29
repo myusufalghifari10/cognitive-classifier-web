@@ -228,6 +228,9 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
 }
 #view-chat.is-empty .empty { margin: 0 auto; }
 #view-chat.is-empty .composer { margin-bottom: auto; padding-bottom: 18px; }
+/* Bias ke atas: padding bawah view memotong ruang yang dibagi auto-margin,
+   sehingga titik tengah grup naik setengah dari nilai ini. */
+#view-chat.is-empty { padding-bottom: 12vh; }
 
 .composer textarea {
   display: block; width: 100%; resize: none; border: 0; outline: none;
