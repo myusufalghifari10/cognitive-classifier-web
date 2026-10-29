@@ -555,7 +555,7 @@ input.addEventListener("keydown", (e) => {
 });
 input.addEventListener("input", () => {
   input.style.height = "auto";
-  input.style.height = Math.min(input.scrollHeight, 200) + "px";
+  input.style.height = Math.min(input.scrollHeight, 240) + "px";
 });
 
 /* ---------------- view switch ---------------- */
