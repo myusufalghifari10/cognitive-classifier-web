@@ -31,7 +31,12 @@ lightness-nya dinaikkan untuk kanvas gelap. Hue tidak berubah. Rasio terukur
 9.86:1 terhadap `--bg`. Warna asli `#00853F` (L 0.540) hanya 3.96:1 dan terlihat
 kusam di latar ini, jadi hanya dipakai bila lambang dicetak di atas putih.
 
-Aturan pakai: **hijau hanya untuk lambang**, tidak pernah untuk state interaksi,
+Indikator progres dan loading (progress bar CSV, titik `menganalisis…`) memakai
+gradasi hijau brand `--brand-deep` -> `--brand` -> `--brand-strong`, karena itu
+status proses, bukan interaksi. Sebelumnya keduanya memakai `--c2`/`--c3` yang
+merupakan warna data kategori, jadi warnanya biru-ungu di luar maknanya.
+
+Aturan pakai: **hijau untuk lambang dan status proses**, tidak pernah untuk state interaksi,
 fokus, atau tombol. Biru (`--accent`, hue 240) tetap aksen interaksi, dan
 `--c0`..`--c4` tetap encoding kategori. Hijau harus tetap di bawah 3% luas layar.
 Tidak ada kotak putih di belakang lambang: permukaan paling terang di app ini

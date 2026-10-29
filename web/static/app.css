@@ -42,6 +42,7 @@
   --brand-strong: oklch(0.860 0.100 151);
   --brand-soft: oklch(0.780 0.130 151 / 10%);
   --brand-line: oklch(0.780 0.130 151 / 28%);
+  --brand-deep: oklch(0.640 0.135 151);
 
   /* aksen interaksi: satu hue (240) + turunannya */
   --accent: oklch(0.700 0.130 240);
@@ -286,7 +287,8 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
 }
 
 .pending { display: flex; align-items: center; gap: var(--space-xs); color: var(--muted-fg); font-size: var(--t-sm); }
-.pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--c2); animation: pulse 1.1s infinite; }
+/* indikator loading memakai warna brand, bukan warna data C2 */
+.pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); animation: pulse 1.1s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 
 /* ---------- composer ---------- */
@@ -408,7 +410,7 @@ button.primary:disabled { opacity: 0.32; cursor: not-allowed; }
 .bar { height: 6px; border-radius: 999px; background: var(--wash-1); overflow: hidden; }
 .bar i {
   display: block; height: 100%; width: 0; border-radius: 999px;
-  background: linear-gradient(90deg, var(--c2), var(--c3));
+  background: linear-gradient(90deg, var(--brand-deep), var(--brand) 70%, var(--brand-strong));
   transition: width .3s ease;
 }
 
