@@ -196,11 +196,21 @@
               <span class="pill-n" id="wrong-count"></span>
             </label>
           </div>
-          <div class="table-scroll">
-            <table id="result-table">
+          <div class="table-wrap">
+            <table class="table-head">
+              <colgroup>
+                <col class="col-idx"><col class="col-pred"><col class="col-gold"><col class="col-reason"><col class="col-lat">
+              </colgroup>
               <thead><tr><th>#</th><th>Prediksi</th><th>Gold</th><th>Alasan</th><th>Latency</th></tr></thead>
-              <tbody id="result-body"></tbody>
             </table>
+            <div class="table-scroll">
+              <table id="result-table">
+                <colgroup>
+                  <col class="col-idx"><col class="col-pred"><col class="col-gold"><col class="col-reason"><col class="col-lat">
+                </colgroup>
+                <tbody id="result-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

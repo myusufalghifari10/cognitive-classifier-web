@@ -87,7 +87,7 @@
   --space-4xl: 64px;
 
   /* z-index: enam level bernama */
-  --z-sticky: 1;   /* thead di dalam kontainer tabel */
+  --z-sticky: 1;   /* cadangan untuk header yang menempel; judul tabel kini di luar area scroll */
   --z-rail: 30;
   --z-menu: 40;
   --z-ctx: 60;
@@ -448,10 +448,15 @@ button.primary:disabled { opacity: 0.32; cursor: not-allowed; }
 }
 .filter-pill .pill-n { font-variant-numeric: tabular-nums; opacity: .7; }
 .filter-pill .pill-n:empty { display: none; }
-.table-scroll { max-height: 460px; overflow: auto; border-radius: 14px; background: var(--sunken); }
+/* Judul tabel di luar area scroll supaya track scrollbar mulai di bawah header,
+   bukan menutupi baris judul. Tinggi total tetap 460px (46px header + 414px isi). */
+.table-wrap { border-radius: 14px; background: var(--sunken); overflow: hidden; }
+.table-head, #result-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--t-xs); }
+.table-scroll { max-height: 414px; overflow-y: auto; overflow-x: hidden; background: var(--sunken); }
+.col-idx { width: 58px; } .col-pred { width: 118px; } .col-gold { width: 96px; } .col-lat { width: 96px; }
 table { width: 100%; border-collapse: collapse; font-size: var(--t-xs); }
-thead th {
-  position: sticky; top: 0; z-index: var(--z-sticky); text-align: left; font-weight: 600;
+.table-head th {
+  text-align: left; font-weight: 600;
   padding: var(--space-xs) var(--space-sm); background: var(--sunken); color: var(--muted-fg);
   font-size: var(--t-xs); letter-spacing: 0.05em; text-transform: uppercase;
   box-shadow: inset 0 -1px 0 var(--hair);
