@@ -5,6 +5,15 @@ const CLASS_NAMES = [
   "Eksplorasi", "Integrasi", "Resolusi",
 ];
 
+// Ringkasan rubrik `prompts/system_few_shot.md` (definisi + pembeda), dipadatkan.
+const CLASS_DEFS = [
+  "Sapaan, terima kasih, logistik, dukungan sosial. Tanpa isi materi.",
+  "Bertanya atau mengaku bingung. Ada percikan inkuiri, belum menyumbang jawaban.",
+  "Berbagi info, definisi, contoh, atau opini beralasan. Belum menyintesis.",
+  "Menyintesis, merefleksi, atau menyusun pembuktian langkah demi langkah.",
+  "Simpulan final yang menutup masalah; solusi dipertahankan atau diuji.",
+];
+
 const state = {
   labels: ["C0", "C1", "C2", "C3", "C4"],
   names: CLASS_NAMES,
@@ -43,6 +52,7 @@ async function boot() {
     const h = await api("/api/health");
     state.labels = h.labels || state.labels;
     state.names = h.class_names || CLASS_NAMES;
+    renderLegend();
     $("#status-dot").className = "dot " + (h.api_key ? "ok" : "bad");
     $("#status-text").textContent = h.api_key ? "API siap" : "API key belum ada";
     $("#model-line").textContent = `${h.model} · maks ${h.max_rows} baris/run`;
@@ -54,9 +64,11 @@ async function boot() {
 }
 
 function renderLegend() {
-  $("#legend").innerHTML = state.labels
-    .map((l, i) => `<li><code>${l}</code> ${CLASS_NAMES[i] || ""}</li>`)
-    .join("");
+  $("#legend").innerHTML = state.labels.map((l, i) => `
+    <li>
+      <div class="legend-head"><code>${l}</code><span>${state.names[i] || ""}</span></div>
+      <p>${CLASS_DEFS[i] || ""}</p>
+    </li>`).join("");
 }
 
 function renderChips() {
