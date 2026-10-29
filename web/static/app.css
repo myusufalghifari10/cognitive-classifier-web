@@ -33,12 +33,13 @@ html, body {
 
 /* ---------- sidebar ---------- */
 .sidebar {
-  display: flex; flex-direction: column; gap: 18px;
+  display: flex; flex-direction: column; gap: 14px;
   padding: 16px 12px;
+  height: 100vh; min-height: 0; overflow: hidden;
   border-right: 1px solid var(--border);
   background: oklch(0.17 0 0);
-  overflow-y: auto; min-height: 0;
 }
+.brand, .nav, .class-defs { flex: none; }
 .brand { display: flex; gap: 10px; align-items: center; padding: 6px 8px 0; }
 .brand strong { display: block; font-size: 13px; letter-spacing: -0.01em; }
 .brand small { color: var(--muted-fg); font-size: 11px; }
@@ -62,17 +63,15 @@ html, body {
   margin: 0 0 8px; font-size: 11px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted-fg); font-weight: 600;
 }
-.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 9px;
+  max-height: 38vh; overflow-y: auto; }
 .legend li { font-size: 12px; color: var(--muted-fg); }
 .legend-head { display: flex; gap: 7px; align-items: baseline; }
 .legend-head span { color: var(--fg); font-size: 11.5px; }
 .legend p { margin: 2px 0 0; font-size: 10.5px; line-height: 1.45; color: var(--muted-fg); }
 .legend code { font-family: var(--mono); font-size: 11px; color: var(--fg); opacity: 0.85; flex: none; }
 
-.side-footer { margin-top: auto; padding: 10px 8px 4px; border-top: 1px solid var(--border); }
-.status { display: flex; align-items: center; gap: 7px; font-size: 12px; }
-.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-fg); }
-.status .dot.ok { background: var(--c4); }
+.side-footer { display: none; }
 .status .dot.bad { background: oklch(0.63 0.21 25); }
 .side-footer small { color: var(--muted-fg); font-size: 11px; }
 
@@ -245,8 +244,10 @@ tr.wrong td.pred { color: oklch(0.7 0.19 25); }
 ::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 14%); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
 
 /* ---------- session list ---------- */
-.sessions { min-height: 0; }
-.sessions-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+/* Sesi mengambil sisa tinggi sidebar; kelas di bawahnya tidak mungkin tertimpa
+   karena keduanya flex item dengan min-height:0 dan scroll internal masing-masing. */
+.sessions { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.sessions-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex: none; }
 .sessions-head h4 { margin: 0; }
 #new-session {
   width: 20px; height: 20px; display: grid; place-items: center; cursor: pointer;
@@ -255,7 +256,10 @@ tr.wrong td.pred { color: oklch(0.7 0.19 25); }
 }
 #new-session:hover { color: var(--fg); border-color: var(--ring); background: var(--muted); }
 
-.session-list { display: flex; flex-direction: column; gap: 2px; max-height: 42vh; overflow-y: auto; }
+.session-list {
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+}
 .session-empty { margin: 0 0 0 2px; font-size: 11.5px; color: var(--muted-fg); }
 
 .session-item {
@@ -290,3 +294,15 @@ tr.wrong td.pred { color: oklch(0.7 0.19 25); }
   color: var(--fg); background: var(--bg);
   border: 1px solid var(--ring); border-radius: 5px; outline: none;
 }
+
+/* ---------- arti kelas (dropdown) ---------- */
+.class-defs { border-top: 1px solid var(--border); padding: 10px 6px 0; }
+.class-defs summary {
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+  list-style: none; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted-fg); font-weight: 600;
+}
+.class-defs summary::-webkit-details-marker { display: none; }
+.class-defs summary:hover { color: var(--fg); }
+.class-defs .chev { font-size: 13px; transition: transform 0.15s; }
+.class-defs[open] .chev { transform: rotate(90deg); }

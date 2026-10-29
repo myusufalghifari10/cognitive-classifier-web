@@ -53,12 +53,8 @@ async function boot() {
     state.labels = h.labels || state.labels;
     state.names = h.class_names || CLASS_NAMES;
     renderLegend();
-    $("#status-dot").className = "dot " + (h.api_key ? "ok" : "bad");
-    $("#status-text").textContent = h.api_key ? "API siap" : "API key belum ada";
-    $("#model-line").textContent = `${h.model} · maks ${h.max_rows} baris/run`;
   } catch {
-    $("#status-dot").className = "dot bad";
-    $("#status-text").textContent = "backend tidak merespons";
+    // biarkan nilai default lokal; daftar sesi tetap dicoba di bawah
   }
   await loadSessions(true);
 }
@@ -109,6 +105,9 @@ function renderSessionList() {
     list.innerHTML = `<p class="session-empty">Belum ada sesi.</p>`;
     return;
   }
+  // Hanya bangun ulang kalau memang perlu: kalau user sedang mengganti nama
+  // (ada <input> di dalam list), jangan sentuh DOM-nya.
+  if (list.querySelector(".session-rename")) return;
   list.innerHTML = state.sessions.map((s) => `
     <div class="session-item${s.id === state.active ? " active" : ""}" data-id="${s.id}">
       <button class="session-open" data-act="open">
@@ -132,20 +131,44 @@ function renderSessionList() {
   });
 }
 
+let openSeq = 0;
+
 async function openSession(id) {
+  const seq = ++openSeq;
   let data;
   try {
     data = await api(`/api/sessions/${id}`);
-  } catch (err) {
+  } catch {
     await loadSessions();
     return;
   }
+  if (seq !== openSeq) return;      // klik lain sudah menang; jangan timpa thread
   state.active = id;
   renderSessionList();
   renderThread(data.messages || []);
 }
 
+/** Patch satu baris sesi di list tanpa refetch (pola `applyConversationUpdate` llama.cpp). */
+function patchSession(id, res) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s) return;
+  if (res?.title) s.title = res.title;
+  if (res?.n_messages != null) s.n_messages = res.n_messages;
+  s.updated_at = new Date().toISOString();
+  // pesan terbaru -> sesi naik ke atas
+  state.sessions = [s, ...state.sessions.filter((x) => x.id !== id)];
+  renderSessionList();
+}
+
 async function newSession() {
+  // Tekan "+" berkali-kali jangan bikin sesi kosong bertumpuk: pakai ulang
+  // sesi aktif yang masih kosong.
+  const active = state.sessions.find((s) => s.id === state.active);
+  if (active && active.n_messages === 0) {
+    renderThread([]);
+    input.focus();
+    return state.active;
+  }
   const s = await api("/api/sessions", { method: "POST", body: JSON.stringify({}) });
   state.sessions.unshift({ id: s.id, title: s.title, updated_at: new Date().toISOString(), n_messages: 0 });
   state.active = s.id;
@@ -159,6 +182,7 @@ async function renameSession(id, item) {
   const current = state.sessions.find((s) => s.id === id);
   if (!current) return;
   const titleEl = item.querySelector(".session-title");
+  if (!titleEl) return;              // sudah dalam mode rename
   const backup = current.title;
   const field = document.createElement("input");
   field.className = "session-rename";
@@ -175,13 +199,16 @@ async function renameSession(id, item) {
     const title = field.value.trim();
     if (commit && title && title !== backup) {
       try {
-        await api(`/api/sessions/${id}`, { method: "PATCH", body: JSON.stringify({ title }) });
-        current.title = title;
+        const res = await api(`/api/sessions/${id}`,
+          { method: "PATCH", body: JSON.stringify({ title }) });
+        current.title = res.title;
       } catch (err) {
         alert(`Gagal ganti nama: ${err.message}`);
+        current.title = backup;
       }
     }
-    await loadSessions();
+    field.remove();
+    renderSessionList();
   };
 
   field.addEventListener("keydown", (e) => {
@@ -201,12 +228,14 @@ async function deleteSession(id) {
     alert(`Gagal hapus: ${err.message}`);
     return;
   }
-  if (state.active === id) state.active = null;
-  await loadSessions();
-  if (!state.active) {
-    if (state.sessions.length) await openSession(state.sessions[0].id);
-    else showEmpty();
+  state.sessions = state.sessions.filter((x) => x.id !== id);
+  // Sesi aktif dihapus -> kosongkan, jangan auto-buka sesi lain (sama seperti
+  // deleteConversation llama.cpp: clearActiveConversation).
+  if (state.active === id) {
+    state.active = null;
+    showEmpty();
   }
+  renderSessionList();
 }
 
 $("#session-list").addEventListener("click", (e) => {
@@ -338,7 +367,8 @@ async function sendChat(ev) {
     if (!state.active) await newSession();
     const sessionId = state.active;
 
-    await persist(sessionId, { role: "user", text });
+    const saved = await persist(sessionId, { role: "user", text });
+    patchSession(sessionId, saved);
     appendUser(text);
 
     const shellEl = assistantShell();
@@ -395,8 +425,7 @@ async function sendChat(ev) {
             role: "assistant", pred: data.pred, reason: data.reason,
             thinking: reasoning.slice(0, 8000), latency_ms: data.latency_ms,
             finish: data.finish, budget: data.budget,
-          });
-          await loadSessions();
+          }).then((saved) => patchSession(sessionId, saved));
         } else if (ev === "error") {
           throw new Error(data.message);
         }
