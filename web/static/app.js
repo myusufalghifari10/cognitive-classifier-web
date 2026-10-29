@@ -27,6 +27,7 @@ const state = {
 const thread = $("#thread");
 const threadInner = $("#thread-inner");
 const chatEmpty = $("#chat-empty");
+const chatView = $("#view-chat");
 const input = $("#chat-input");
 const sendBtn = $("#chat-send");
 
@@ -354,11 +355,13 @@ function showEmpty() {
   threadInner.innerHTML = "";
   threadInner.classList.add("hidden");
   chatEmpty.classList.remove("hidden");
+  chatView.classList.add("is-empty");   // komposer pindah ke tengah layar
 }
 
 function showThread() {
   chatEmpty.classList.add("hidden");
   threadInner.classList.remove("hidden");
+  chatView.classList.remove("is-empty");  // ada pesan -> komposer turun ke bawah
 }
 
 function renderThread(messages) {
