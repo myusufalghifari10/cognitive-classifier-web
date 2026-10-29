@@ -30,11 +30,11 @@
   /* garis & wash, urut naik */
   --hair: var(--wash-1);
   --hair-strong: var(--wash-3);
-  --hair-max: var(--hair-max);
-  --wash-1: var(--wash-1);
-  --wash-2: var(--wash-2);
-  --wash-3: var(--wash-3);
-  --wash-4: var(--wash-4);
+  --wash-1: oklch(0.975 0.004 250 / 5%);
+  --wash-2: oklch(0.975 0.004 250 / 9%);
+  --wash-3: oklch(0.975 0.004 250 / 13%);
+  --wash-4: oklch(0.975 0.004 250 / 26%);
+  --hair-max: oklch(0.975 0.004 250 / 28%);
 
   /* identitas: hijau Nalaraya, dinaikkan lightness-nya untuk kanvas gelap.
      Hue tetap 151 (dari #00853F asli), hanya L dan C yang bergerak. */
@@ -59,7 +59,7 @@
 
   /* overlay & elevasi */
   --scrim: var(--shadow);
-  --shadow: var(--shadow);
+  --shadow: oklch(0.090 0.008 250 / 62%);
 
   /* warna data kelas C0-C4 (encoding, bukan aksen) */
   --c0: oklch(0.660 0.030 260);
