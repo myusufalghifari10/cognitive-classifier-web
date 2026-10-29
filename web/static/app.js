@@ -22,6 +22,8 @@ const state = {
   rows: [],
   busy: false,
   poll: null,
+  collapsed: false,
+  bulk: { on: false, ids: new Set() },
 };
 
 const thread = $("#thread");
@@ -54,6 +56,7 @@ async function api(path, opts = {}) {
 async function boot() {
   renderLegend();
   renderChips();
+  setCollapsed(localStorage.getItem("sidebarCollapsed") === "1", false);
   try {
     const h = await api("/api/health");
     state.labels = h.labels || state.labels;
@@ -105,43 +108,74 @@ function fmtWhen(iso) {
     : d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 }
 
-function renderSessionList() {
-  const list = $("#session-list");
-  if (!state.sessions.length) {
-    list.innerHTML = `<p class="session-empty">Belum ada sesi.</p>`;
-    return;
-  }
-  // Hanya bangun ulang kalau memang perlu: kalau user sedang mengganti nama
-  // (ada <input> di dalam list), jangan sentuh DOM-nya.
-  if (list.querySelector(".session-rename")) return;
-  list.innerHTML = state.sessions.map((s) => {
-    const isBatch = s.kind === "batch";
-    const sub = isBatch
-      ? [`CSV · ${s.n_rows ?? 0} baris`,
-         s.accuracy != null ? `${(s.accuracy * 100).toFixed(1)}%` : null,
-         s.status && s.status !== "done" ? s.status : null].filter(Boolean).join(" · ")
-      : `${s.n_messages} pesan`;
-    return `
-    <div class="session-item${s.id === state.active ? " active" : ""}" data-id="${s.id}">
+/* ---------------- daftar sesi ---------------- */
+
+/** Kelompok tanggal gaya chat.deepseek.com; dipakai untuk judul grup. */
+function dateGroup(iso) {
+  if (!iso) return "Lebih lama";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Lebih lama";
+  const now = new Date();
+  const hariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const hari = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const beda = Math.round((hariIni - hari) / 86400000);
+  if (beda <= 0) return "Hari ini";
+  if (beda === 1) return "Kemarin";
+  if (beda <= 7) return "7 hari terakhir";
+  if (beda <= 30) return "30 hari terakhir";
+  return "Lebih lama";
+}
+
+const GROUP_ORDER = ["Pinned", "Hari ini", "Kemarin", "7 hari terakhir",
+                     "30 hari terakhir", "Lebih lama"];
+
+const PIN_SVG = '<svg class="pin-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l-1 6 4 4v2H6v-2l4-4z"/></svg>';
+const KEBAB_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>';
+
+function sessionItemHtml(s) {
+  const isBatch = s.kind === "batch";
+  const sub = isBatch
+    ? [`CSV, ${s.n_rows ?? 0} baris`,
+       s.accuracy != null ? `${(s.accuracy * 100).toFixed(1)}%` : null,
+       s.status && s.status !== "done" ? s.status : null].filter(Boolean).join(" · ")
+    : `${s.n_messages} pesan`;
+  const picked = state.bulk.on && state.bulk.ids.has(s.id);
+  return `
+    <div class="session-item${s.id === state.active ? " active" : ""}${picked ? " picked" : ""}" data-id="${s.id}">
+      ${state.bulk.on ? '<span class="tick" aria-hidden="true"></span>' : ""}
       <button class="session-open" data-act="open">
         <span class="session-line">
-          ${isBatch ? '<span class="kind">CSV</span>' : ""}
+          ${s.pinned && !state.bulk.on ? PIN_SVG : ""}${isBatch ? '<span class="kind">CSV</span>' : ""}
           <span class="session-title"></span>
         </span>
         <small>${sub} · ${fmtWhen(s.updated_at)}</small>
       </button>
-      <div class="session-actions">
-        <button data-act="rename" title="Ganti nama" aria-label="Ganti nama">
-          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-        </button>
-        <button data-act="delete" title="Hapus" aria-label="Hapus">
-          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-        </button>
-      </div>
+      ${state.bulk.on ? "" : `<button class="kebab" data-act="menu" title="Opsi sesi" aria-label="Opsi sesi">${KEBAB_SVG}</button>`}
     </div>`;
-  }).join("");
+}
 
-  // judul diisi via textContent (judul bisa berasal dari teks user)
+function renderSessionList() {
+  const list = $("#session-list");
+  // Jangan sentuh DOM selama input rename hidup: fokus akan hilang dan blur
+  // memicu finish() dua kali.
+  if (list.querySelector(".session-rename")) return;
+  if (!state.sessions.length) {
+    list.innerHTML = `<p class="session-empty">Belum ada sesi.</p>`;
+    return;
+  }
+  const groups = new Map();
+  for (const s of state.sessions) {
+    const key = s.pinned ? "Pinned" : dateGroup(s.updated_at);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
+  }
+  const keys = [...groups.keys()]
+    .sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
+  list.innerHTML = keys.map((key) =>
+    `<p class="session-group">${key}</p>` + groups.get(key).map(sessionItemHtml).join("")
+  ).join("");
+
+  // judul diisi via textContent (judul berasal dari teks user, jangan innerHTML)
   state.sessions.forEach((s) => {
     const el = list.querySelector(`.session-item[data-id="${s.id}"] .session-title`);
     if (el) el.textContent = s.title;
@@ -317,11 +351,11 @@ async function renameSession(id, item) {
   field.addEventListener("blur", () => finish(true));
 }
 
-async function deleteSession(id) {
+async function deleteSession(id, silent = false) {
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return;
   const isBatch = s.kind === "batch";
-  if (!confirm(isBatch
+  if (!silent && !confirm(isBatch
     ? `Hapus sesi "${s.title}" dari daftar? Berkas hasil di runs/ tetap tersimpan.`
     : `Hapus sesi "${s.title}"? Riwayatnya hilang permanen.`)) return;
   try {
@@ -346,14 +380,35 @@ async function deleteSession(id) {
 $("#session-list").addEventListener("click", (e) => {
   const item = e.target.closest(".session-item");
   if (!item) return;
-  const act = e.target.closest("[data-act]")?.dataset.act;
   const id = item.dataset.id;
-  if (act === "rename") renameSession(id, item);
-  else if (act === "delete") deleteSession(id);
-  else if (act === "open" && id !== state.active) openSession(id);
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s) return;
+  if (act === "menu") { openCtx(e.target.closest("[data-act]"), s.id); return; }
+  if (state.bulk.on) { togglePick(id); return; }
+  if (act === "open" && id !== state.active) openSession(id);
 });
 
 $("#new-session").addEventListener("click", () => newSession());
+$("#rail-new").addEventListener("click", () => newSession());
+
+$("#bulk-bar").addEventListener("click", async (e) => {
+  const act = e.target.closest("[data-bulk]")?.dataset.bulk;
+  if (!act) return;
+  if (act === "cancel") return exitBulk();
+  const ids = [...state.bulk.ids];
+  if (!ids.length) return;
+  if (act === "pin") {
+    for (const id of ids) {
+      const s = state.sessions.find((x) => x.id === id);
+      if (s && !s.pinned) await togglePin(s, true);
+    }
+  } else if (act === "delete") {
+    if (!confirm(`Hapus ${ids.length} sesi terpilih?`)) return;
+    for (const id of ids) await deleteSession(id, true);
+  }
+  exitBulk();
+});
 
 /* ---------------- thread rendering ---------------- */
 
@@ -697,6 +752,375 @@ function finishJob(data) {
       "beforeend", `<div class="metric"><span>error</span><strong>${data.error || ""}</strong></div>`);
   }
 }
+
+/* ---------------- sidebar: ciutkan / buka ---------------- */
+
+function setCollapsed(v, remember = true) {
+  state.collapsed = !!v;
+  $(".shell").classList.toggle("collapsed", state.collapsed);
+  $("#rail").classList.toggle("hidden", !state.collapsed);
+  if (remember) localStorage.setItem("sidebarCollapsed", state.collapsed ? "1" : "0");
+}
+
+$("#side-collapse").addEventListener("click", () => setCollapsed(true));
+$("#rail-open").addEventListener("click", () => setCollapsed(false));
+$("#side-search").addEventListener("click", () => openSearch());
+$("#rail-search").addEventListener("click", () => openSearch());
+
+/* ---------------- util kecil ---------------- */
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function highlight(text, q) {
+  const src = String(text ?? "");
+  const i = src.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return escapeHtml(src);
+  return escapeHtml(src.slice(0, i)) + "<mark>" + escapeHtml(src.slice(i, i + q.length))
+    + "</mark>" + escapeHtml(src.slice(i + q.length));
+}
+
+function slug(text) {
+  return (text || "sesi").toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "").slice(0, 48) || "sesi";
+}
+
+function toast(msg) {
+  let el = $("#toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.className = "toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 2000);
+}
+
+function download(filename, text, type = "application/json") {
+  const blob = new Blob([text], { type: `${type};charset=utf-8` });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Disalin ke clipboard");
+  } catch {
+    alert("Browser menolak akses clipboard. Pakai Unduh JSON/Markdown.");
+  }
+}
+
+/* ---------------- bagikan / ekspor ---------------- */
+
+async function exportEnvelope(id) {
+  const d = await api(`/api/sessions/${id}`);
+  return {
+    app: "cognitive-classifier-web",
+    schema: 1,
+    exported_at: new Date().toISOString(),
+    session: {
+      id: d.id, title: d.title, kind: d.kind || "chat",
+      created_at: d.created_at, updated_at: d.updated_at,
+      pinned: !!d.pinned,
+      n_rows: d.total ?? null, accuracy: d.accuracy ?? null, status: d.status ?? null,
+      messages: d.messages || [],
+    },
+  };
+}
+
+function classNameOf(pred) {
+  const i = state.labels.indexOf(pred);
+  return i >= 0 ? state.names[i] : "";
+}
+
+function toMarkdown(env) {
+  const s = env.session;
+  const when = new Date(env.exported_at).toLocaleString("id-ID");
+  if (s.kind === "batch") {
+    return `# ${s.title}\n\n_Sesi CSV, diekspor ${when}_\n\n`
+      + [`- Baris: ${s.n_rows ?? "-"}`,
+         `- Akurasi: ${s.accuracy != null ? (s.accuracy * 100).toFixed(2) + "%" : "-"}`,
+         `- Status: ${s.status || "-"}`].join("\n") + "\n";
+  }
+  let out = `# ${s.title}\n\n_${s.messages.length} pesan, diekspor ${when}_\n`;
+  for (const m of s.messages) {
+    if (m.role === "user") {
+      out += `\n**Kamu**\n\n${m.text || ""}\n`;
+      continue;
+    }
+    const meta = [m.pred, classNameOf(m.pred),
+                  m.latency_ms ? `${(m.latency_ms / 1000).toFixed(1)}s` : null]
+      .filter(Boolean).join(", ");
+    out += `\n**Klasifikasi CoI**${meta ? ` (${meta})` : ""}\n\n${m.reason || ""}\n`;
+    if (m.thinking) {
+      out += `\n<details><summary>proses berpikir</summary>\n\n${m.thinking}\n\n</details>\n`;
+    }
+  }
+  return out;
+}
+
+function toPlain(env) {
+  const s = env.session;
+  if (s.kind === "batch") return `${s.title}\nBaris: ${s.n_rows ?? "-"} · Status: ${s.status || "-"}`;
+  return s.messages.map((m) => m.role === "user"
+    ? `KAMU: ${m.text || ""}`
+    : `AI${m.pred ? ` (${m.pred})` : ""}: ${m.reason || ""}`).join("\n\n");
+}
+
+/* ---------------- menu konteks sesi ---------------- */
+
+const ctx = $("#ctx");
+let ctxId = null;
+let ctxItem = null;
+
+const ICON = {
+  rename: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  pin: '<svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 6 4 4v2H6v-2l4-4z"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M12 16V3M8 7l4-4 4 4"/></svg>',
+  multi: '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 1-1M4 12l1 1 1-1M4 18l1 1 1-1"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+};
+
+function placeCtx(anchor) {
+  ctx.classList.remove("hidden");
+  const r = anchor.getBoundingClientRect();
+  const w = ctx.offsetWidth || 200;
+  const h = ctx.offsetHeight || 200;
+  const left = Math.min(r.left, window.innerWidth - w - 12);
+  const top = Math.min(r.bottom + 6, window.innerHeight - h - 12);
+  ctx.style.left = `${Math.max(10, left)}px`;
+  ctx.style.top = `${Math.max(10, top)}px`;
+}
+
+function openCtx(anchor, id) {
+  ctxId = id;
+  ctxItem = anchor.closest(".session-item");
+  renderCtxMain();
+  placeCtx(anchor);
+}
+
+function closeCtx() {
+  ctx.classList.add("hidden");
+  ctxId = null;
+}
+
+function renderCtxMain() {
+  const s = state.sessions.find((x) => x.id === ctxId);
+  if (!s) return closeCtx();
+  ctx.innerHTML = `
+    <button class="ctx-item" data-ctx="rename">${ICON.rename} Ganti nama</button>
+    <button class="ctx-item" data-ctx="pin">${ICON.pin} ${s.pinned ? "Lepas pin" : "Pin"}</button>
+    <button class="ctx-item" data-ctx="share">${ICON.share} Bagikan <span class="ctx-arrow">›</span></button>
+    <button class="ctx-item" data-ctx="multi">${ICON.multi} Pilih banyak</button>
+    <div class="ctx-sep"></div>
+    <button class="ctx-item danger" data-ctx="delete">${ICON.trash} Hapus</button>`;
+}
+
+function renderCtxShare() {
+  ctx.innerHTML = `
+    <button class="ctx-item dim" data-ctx="back"><span class="ctx-arrow back">‹</span> Bagikan</button>
+    <div class="ctx-sep"></div>
+    <button class="ctx-item" data-ctx="dl-json">Unduh JSON</button>
+    <button class="ctx-item" data-ctx="dl-md">Unduh Markdown</button>
+    <div class="ctx-sep"></div>
+    <button class="ctx-item" data-ctx="cp-text">Copy teks biasa</button>
+    <button class="ctx-item" data-ctx="cp-md">Copy Markdown</button>
+    <button class="ctx-item" data-ctx="cp-json">Copy JSON</button>`;
+}
+
+ctx.addEventListener("click", async (e) => {
+  const act = e.target.closest("[data-ctx]")?.dataset.ctx;
+  if (!act) return;
+  if (act === "back") return renderCtxMain();
+  if (act === "share") return renderCtxShare();
+  if (act === "import") { closeCtx(); $("#import-file").click(); return; }
+  const id = ctxId;
+  const s = state.sessions.find((x) => x.id === id);
+  closeCtx();
+  if (!s) return;
+  if (act === "rename") {
+    return renameSession(s.id, ctxItem || document.querySelector(`.session-item[data-id="${s.id}"]`));
+  }
+  if (act === "pin") return togglePin(s);
+  if (act === "multi") return enterBulk(s.id);
+  if (act === "delete") return deleteSession(s.id);
+
+  if (act === "dl-json" || act === "cp-json") {
+    const env = await exportEnvelope(s.id);
+    const json = JSON.stringify(env, null, 2);
+    return act === "dl-json" ? download(`${slug(s.title)}.json`, json) : copyText(json);
+  }
+  const env = await exportEnvelope(s.id);
+  if (act === "dl-md") return download(`${slug(s.title)}.md`, toMarkdown(env), "text/markdown");
+  if (act === "cp-md") return copyText(toMarkdown(env));
+  if (act === "cp-text") return copyText(toPlain(env));
+});
+
+$("#side-menu").addEventListener("click", (e) => {
+  e.stopPropagation();
+  ctxId = null;
+  ctx.innerHTML = `<button class="ctx-item" data-ctx="import">Impor sesi (.json)</button>`;
+  placeCtx(e.currentTarget);
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#ctx") && !e.target.closest("[data-act='menu']") && !e.target.closest("#side-menu")) {
+    closeCtx();
+  }
+});
+
+/* ---------------- pin ---------------- */
+
+async function togglePin(s, silent = false) {
+  const next = !s.pinned;
+  try {
+    const res = await api(`/api/sessions/${s.id}`,
+      { method: "PATCH", body: JSON.stringify({ pinned: next }) });
+    s.pinned = !!res.pinned;
+  } catch (err) {
+    alert(`Gagal ${next ? "pin" : "lepas pin"}: ${err.message}`);
+    return;
+  }
+  if (!silent) renderSessionList();
+}
+
+/* ---------------- pilih banyak ---------------- */
+
+function syncBulk() {
+  $("#bulk-bar").classList.toggle("hidden", !state.bulk.on);
+  $("#bulk-count").textContent = `${state.bulk.ids.size} dipilih`;
+}
+
+function enterBulk(id) {
+  state.bulk = { on: true, ids: new Set(id ? [id] : []) };
+  syncBulk();
+  renderSessionList();
+}
+
+function exitBulk() {
+  state.bulk = { on: false, ids: new Set() };
+  syncBulk();
+  renderSessionList();
+}
+
+function togglePick(id) {
+  if (state.bulk.ids.has(id)) state.bulk.ids.delete(id);
+  else state.bulk.ids.add(id);
+  syncBulk();
+  renderSessionList();
+}
+
+/* ---------------- pencarian sesi (Ctrl+K) ---------------- */
+
+let searchTimer = null;
+
+function openSearch() {
+  $("#search-modal").classList.remove("hidden");
+  const el = $("#search-input");
+  el.value = "";
+  el.focus();
+  $("#search-results").innerHTML =
+    `<p class="search-hint">Ketik minimal 2 huruf. Pencarian mencakup judul dan isi pesan.</p>`;
+}
+
+function closeSearch() {
+  $("#search-modal").classList.add("hidden");
+}
+
+$("#search-input").addEventListener("input", (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(searchTimer);
+  if (q.length < 2) {
+    $("#search-results").innerHTML = `<p class="search-hint">Ketik minimal 2 huruf.</p>`;
+    return;
+  }
+  searchTimer = setTimeout(() => runSearch(q), 180);
+});
+
+async function runSearch(q) {
+  const box = $("#search-results");
+  box.innerHTML = `<p class="search-hint">Mencari...</p>`;
+  let data;
+  try {
+    data = await api(`/api/sessions/search?q=${encodeURIComponent(q)}`);
+  } catch (err) {
+    box.innerHTML = `<p class="search-hint">Gagal mencari: ${escapeHtml(err.message)}</p>`;
+    return;
+  }
+  if (!data.results.length) {
+    box.innerHTML = `<p class="search-hint">Tidak ada hasil untuk "${escapeHtml(q)}".</p>`;
+    return;
+  }
+  box.innerHTML = data.results.map((r) => `
+    <button class="search-hit" data-id="${r.id}">
+      <span class="search-hit-head">
+        ${r.kind === "batch" ? '<span class="kind">CSV</span>' : ""}
+        <span class="search-hit-title">${highlight(r.title, q)}</span>
+        <span class="search-hit-when">${fmtWhen(r.updated_at)}</span>
+      </span>
+      ${r.hits.map((h) => `<span class="search-hit-line"><em>${
+        h.role === "user" ? "kamu" : h.role === "title" ? "judul" : "AI"
+      }</em> ${highlight(h.snippet, q)}</span>`).join("")}
+    </button>`).join("");
+}
+
+$("#search-results").addEventListener("click", (e) => {
+  const hit = e.target.closest(".search-hit");
+  if (!hit) return;
+  closeSearch();
+  openSession(hit.dataset.id);
+});
+
+$("#search-modal").addEventListener("click", (e) => {
+  if (e.target.id === "search-modal") closeSearch();
+});
+
+$("#search-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const first = $("#search-results").querySelector(".search-hit");
+    if (first) { closeSearch(); openSession(first.dataset.id); }
+  }
+});
+
+/* ---------------- impor sesi ---------------- */
+
+$("#import-file").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const env = JSON.parse(await file.text());
+    const res = await api("/api/sessions/import",
+      { method: "POST", body: JSON.stringify(env) });
+    await loadSessions();
+    await openSession(res.id);
+    toast(`Sesi diimpor, ${res.n_messages} pesan`);
+  } catch (err) {
+    alert(`Impor gagal: ${err.message}`);
+  }
+  e.target.value = "";
+});
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if ($("#search-modal").classList.contains("hidden")) openSearch();
+    else closeSearch();
+  } else if (e.key === "Escape") {
+    closeSearch();
+    closeCtx();
+  }
+});
 
 /* ---------------- popover menu (pengganti <select> native) ----------------
    Native <select> memunculkan daftar bawaan OS yang tidak bisa digaya dan

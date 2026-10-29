@@ -39,6 +39,19 @@ keperluan benchmarking, bukan lewat app.
 - **Unduhan** — `CSV` (teks + label + alasan), `Report` (teks polos seperti report
   benchmark), `Confusion` (PNG), `JSONL` (record per sampel).
 - Biaya per run ditampilkan sebagai estimasi dari `usage` token DeepSeek.
+- **Sidebar bisa ditutup.** Tombol panel di header menyembunyikan sidebar dan
+  menggantinya dengan rail kecil berisi buka-sidebar, cari, dan obrolan baru.
+  Keadaan terakhir diingat di browser (localStorage).
+- **Kebab per sesi.** Titik tiga di kanan baris (muncul saat hover) membuka menu:
+  ganti nama, pin, bagikan, pilih banyak, hapus. Sesi yang di-pin naik ke grup
+  `Pinned` paling atas; sisanya dikelompokkan per tanggal.
+- **Pilih banyak.** Mode centang dengan aksi massal pin dan hapus.
+- **Pencarian sesi (Ctrl+K).** Mencocokkan judul DAN isi pesan, menampilkan
+  potongan teks yang cocok dengan sorotan, lalu klik untuk membuka sesinya.
+- **Bagikan.** Submenu per sesi: unduh JSON (format aplikasi), unduh Markdown,
+  atau copy ke clipboard sebagai teks biasa, Markdown, atau JSON. Berkas JSON
+  bisa dimasukkan lagi lewat menu header sidebar (Impor sesi). Impor selalu
+  membuat sesi baru dengan id baru, jadi tidak mungkin menimpa sesi yang ada.
 - **Sesi chat** tersimpan di server (`data/sessions/<id>.json`), bukan di browser:
   riwayat tetap ada setelah refresh, tutup tab, bahkan restart server. Sesi bisa
   diganti nama dan dihapus dari sidebar. Judul otomatis diambil dari pesan pertama.

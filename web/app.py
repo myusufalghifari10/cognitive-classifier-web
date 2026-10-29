@@ -246,6 +246,7 @@ async def api_sessions():
         items.append({"id": data["id"], "kind": kind,
                       "title": data.get("title") or "Sesi baru",
                       "updated_at": data.get("updated_at"),
+                      "pinned": bool(data.get("pinned")),
                       "n_messages": len(data.get("messages") or []),
                       "n_rows": data.get("total") if kind == "batch" else None,
                       "status": data.get("status"),
@@ -254,13 +255,87 @@ async def api_sessions():
     return {"sessions": items}
 
 
+def _snippet(text: str, needle: str, width: int = 110) -> str:
+    """Potongan teks di sekitar kecocokan supaya hasil pencarian bisa dibaca."""
+    low = text.lower()
+    i = low.find(needle)
+    if i < 0:
+        return text[:width] + ("..." if len(text) > width else "")
+    start = max(0, i - width // 3)
+    end = min(len(text), i + len(needle) + width)
+    return (("..." if start else "") + text[start:end].strip()
+            + ("..." if end < len(text) else ""))
+
+
+@app.get("/api/sessions/search")
+async def api_sessions_search(q: str = "", limit: int = 30):
+    """Cari di judul DAN isi pesan. Didaftarkan sebelum rute {session_id} agar
+    'search' tidak diperlakukan sebagai id sesi."""
+    needle = (q or "").strip().lower()
+    if len(needle) < 2:
+        return {"query": q, "results": []}
+    results = []
+    for path in SESSIONS.glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        title = data.get("title") or "Sesi baru"
+        hits = []
+        if needle in title.lower():
+            hits.append({"role": "title", "snippet": title})
+        for msg in data.get("messages") or []:
+            body = msg.get("text") or msg.get("reason") or ""
+            if needle in body.lower():
+                hits.append({"role": msg.get("role") or "assistant",
+                             "snippet": _snippet(body, needle)})
+            if len(hits) >= 4:
+                break
+        if hits:
+            results.append({"id": data["id"], "kind": data.get("kind") or "chat",
+                            "title": title, "updated_at": data.get("updated_at"),
+                            "pinned": bool(data.get("pinned")),
+                            "n_messages": len(data.get("messages") or []),
+                            "hits": hits[:4]})
+    results.sort(key=lambda r: r["updated_at"] or "", reverse=True)
+    return {"query": q, "results": results[:max(1, min(limit, 100))]}
+
+
+@app.post("/api/sessions/import")
+async def api_session_import(payload: dict):
+    """Impor sesi hasil ekspor. Selalu jadi sesi BARU: id lama tidak pernah dipakai
+    ulang sehingga tidak mungkin menimpa sesi yang sudah ada."""
+    if payload.get("app") != "cognitive-classifier-web":
+        raise HTTPException(400, "Bukan berkas ekspor aplikasi ini.")
+    if payload.get("schema") != 1:
+        raise HTTPException(400, "Versi skema tidak didukung.")
+    src = payload.get("session") or {}
+    messages = []
+    for msg in src.get("messages") or []:
+        role = msg.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        messages.append({k: v for k, v in msg.items() if k != "id"} | {"role": role})
+    if not messages:
+        raise HTTPException(400, "Sesi tanpa pesan tidak bisa diimpor.")
+    if len(messages) > 500:
+        raise HTTPException(400, "Terlalu banyak pesan (maks 500).")
+    async with _session_lock:
+        session_id = uuid.uuid4().hex[:12]
+        title = ((src.get("title") or "Sesi impor").strip()[:70] + " (impor)")[:80]
+        _write_session({"id": session_id, "kind": "chat", "title": title,
+                        "pinned": False, "created_at": _now(), "updated_at": _now(),
+                        "imported_at": _now(), "messages": messages})
+    return {"id": session_id, "title": title, "n_messages": len(messages)}
+
+
 @app.post("/api/sessions")
 async def api_session_create(payload: dict | None = None):
     async with _session_lock:
         session_id = uuid.uuid4().hex[:12]
         title = ((payload or {}).get("title") or "Sesi baru").strip()[:80]
         _write_session({"id": session_id, "title": title, "created_at": _now(),
-                        "updated_at": _now(), "messages": []})
+                        "updated_at": _now(), "pinned": False, "messages": []})
     return {"id": session_id, "title": title}
 
 
@@ -280,16 +355,21 @@ async def api_session_get(session_id: str):
 
 
 @app.patch("/api/sessions/{session_id}")
-async def api_session_rename(session_id: str, payload: dict):
-    title = (payload.get("title") or "").strip()[:80]
-    if not title:
-        raise HTTPException(400, "Judul tidak boleh kosong.")
+async def api_session_update(session_id: str, payload: dict):
+    """Ubah judul dan/atau status pin. updated_at sengaja tidak disentuh supaya
+    pin/rename tidak mengacak urutan grup tanggal."""
     async with _session_lock:
         data = _read_session(session_id)
-        data["title"] = title
-        data["updated_at"] = _now()
+        if "title" in payload:
+            title = (payload.get("title") or "").strip()[:80]
+            if not title:
+                raise HTTPException(400, "Judul tidak boleh kosong.")
+            data["title"] = title
+        if "pinned" in payload:
+            data["pinned"] = bool(payload["pinned"])
         _write_session(data)
-    return {"id": session_id, "title": title}
+    return {"id": session_id, "title": data.get("title"),
+            "pinned": bool(data.get("pinned"))}
 
 
 @app.delete("/api/sessions/{session_id}")

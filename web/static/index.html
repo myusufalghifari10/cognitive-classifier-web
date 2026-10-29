@@ -9,14 +9,32 @@
 <body>
 <div class="shell">
 
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-dot"></span>
-      <div>
-        <strong>Cognitive Presence</strong>
-        <small>Community of Inquiry · 5 kelas</small>
+  <aside class="sidebar" id="sidebar">
+    <div class="side-head">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <div>
+          <strong>Cognitive Presence</strong>
+          <small>Community of Inquiry · 5 kelas</small>
+        </div>
+      </div>
+      <div class="side-head-actions">
+        <button class="icon-btn" id="side-search" title="Cari sesi (Ctrl+K)" aria-label="Cari sesi">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        </button>
+        <button class="icon-btn" id="side-menu" title="Menu lain" aria-label="Menu lain" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="icon-btn" id="side-collapse" title="Tutup sidebar" aria-label="Tutup sidebar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+        </button>
       </div>
     </div>
+
+    <button class="new-chat" id="new-session">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+      Obrolan baru
+    </button>
 
     <nav class="nav">
       <button class="nav-item active" data-view="chat">
@@ -29,10 +47,12 @@
       </button>
     </nav>
 
-    <div class="side-section sessions">
-      <div class="sessions-head">
-        <h4>Sesi</h4>
-        <button id="new-session" title="Sesi baru" aria-label="Sesi baru">+</button>
+    <div class="side-section sessions" id="sessions">
+      <div class="bulk-bar hidden" id="bulk-bar">
+        <span id="bulk-count">0 dipilih</span>
+        <button data-bulk="pin" title="Pin terpilih">Pin</button>
+        <button data-bulk="delete" title="Hapus terpilih">Hapus</button>
+        <button data-bulk="cancel" title="Batal">Batal</button>
       </div>
       <div class="session-list" id="session-list"></div>
     </div>
@@ -43,6 +63,19 @@
     </details>
 
   </aside>
+
+  <!-- Rail yang muncul saat sidebar ditutup (gaya chat.deepseek.com) -->
+  <div class="rail hidden" id="rail">
+    <button class="icon-btn" id="rail-open" title="Buka sidebar" aria-label="Buka sidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+    </button>
+    <button class="icon-btn" id="rail-search" title="Cari sesi (Ctrl+K)" aria-label="Cari sesi">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    </button>
+    <button class="icon-btn" id="rail-new" title="Obrolan baru" aria-label="Obrolan baru">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
 
   <main class="main">
 
@@ -158,6 +191,25 @@
 
   </main>
 </div>
+
+<!-- dialog pencarian sesi (Ctrl+K) -->
+<div class="modal hidden" id="search-modal">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="Cari sesi">
+    <div class="modal-input">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="search-input" type="text" placeholder="Cari judul atau isi percakapan" autocomplete="off" spellcheck="false">
+      <kbd>Esc</kbd>
+    </div>
+    <div class="modal-results" id="search-results"></div>
+    <div class="modal-foot">Mencocokkan judul dan isi pesan</div>
+  </div>
+</div>
+
+<!-- menu konteks mengambang untuk tiap sesi -->
+<div class="ctx hidden" id="ctx" role="menu"></div>
+
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+
 <script src="/static/app.js"></script>
 </body>
 </html>
