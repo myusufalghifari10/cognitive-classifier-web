@@ -765,6 +765,15 @@ function finishJob(data) {
   }
 }
 
+/* ---------------- logo aplikasi ---------------- */
+
+const LOGO_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true">
+  <path d="M20.5 11.6a7.9 7.9 0 0 1-11.5 7.1L4 20l1.4-5A7.9 7.9 0 1 1 20.5 11.6z"/>
+  <path d="M8.6 11.6h.01M12 11.6h.01M15.4 11.6h.01"/>
+</svg>`;
+
+document.querySelectorAll("[data-logo]").forEach((el) => { el.innerHTML = LOGO_SVG; });
+
 /* ---------------- sidebar: ciutkan / buka ---------------- */
 
 function setCollapsed(v, remember = true) {
@@ -778,6 +787,9 @@ $("#side-collapse").addEventListener("click", () => setCollapsed(true));
 $("#rail-open").addEventListener("click", () => setCollapsed(false));
 $("#side-search").addEventListener("click", () => openSearch());
 $("#rail-search").addEventListener("click", () => openSearch());
+// Logo = pulang ke beranda: buka obrolan baru kosong.
+$("#rail-home").addEventListener("click", () => newSession());
+$("#brand-home").addEventListener("click", () => newSession());
 
 /* ---------------- util kecil ---------------- */
 

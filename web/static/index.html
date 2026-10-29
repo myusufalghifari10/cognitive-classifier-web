@@ -11,10 +11,10 @@
 
   <aside class="sidebar" id="sidebar">
     <div class="side-head">
-      <div class="brand" title="Community of Inquiry · 5 kelas">
-        <span class="brand-dot"></span>
+      <button class="brand" id="brand-home" title="Mulai obrolan baru">
+        <span class="logo-tile" data-logo></span>
         <strong>Cognitive Presence</strong>
-      </div>
+      </button>
       <div class="side-head-actions">
         <button class="icon-btn" id="side-search" title="Cari sesi (Ctrl+K)" aria-label="Cari sesi">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -78,15 +78,20 @@
 
   <!-- Rail yang muncul saat sidebar ditutup (gaya chat.deepseek.com) -->
   <div class="rail hidden" id="rail">
-    <button class="icon-btn" id="rail-open" title="Buka sidebar" aria-label="Buka sidebar">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+    <button class="rail-logo" id="rail-home" title="Mulai obrolan baru" aria-label="Mulai obrolan baru">
+      <span class="logo-tile" data-logo></span>
     </button>
-    <button class="icon-btn" id="rail-search" title="Cari sesi (Ctrl+K)" aria-label="Cari sesi">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-    </button>
-    <button class="icon-btn" id="rail-new" title="Obrolan baru" aria-label="Obrolan baru">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    </button>
+    <div class="rail-pill">
+      <button class="icon-btn" id="rail-open" title="Buka sidebar" aria-label="Buka sidebar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+      </button>
+      <button class="icon-btn" id="rail-search" title="Cari sesi (Ctrl+K)" aria-label="Cari sesi">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+      <button class="icon-btn" id="rail-new" title="Obrolan baru" aria-label="Obrolan baru">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
   </div>
 
   <main class="main">
@@ -102,7 +107,7 @@
 
       <div class="thread" id="thread">
         <div class="empty" id="chat-empty">
-          <div class="empty-badge">CoI</div>
+          <span class="empty-logo" data-logo></span>
           <h2>Apa Cognitive Presence postingan ini?</h2>
           <p>Model memilih tepat satu dari lima kelas dan menjelaskan tindakan kognitif penulisnya.</p>
           <div class="chips" id="chat-chips"></div>

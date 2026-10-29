@@ -46,26 +46,48 @@ html, body {
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid oklch(0.7 0.13 240 / 65%); outline-offset: 2px; }
 
-.shell { display: grid; grid-template-columns: 268px 1fr; height: 100vh; overflow: hidden; }
+.shell { display: flex; height: 100vh; overflow: hidden; }
 
 /* ---------- sidebar ---------- */
 .sidebar {
   display: flex; flex-direction: column; gap: 16px;
   padding: 16px 12px 14px;
+  width: 268px; flex: none;
   height: 100%; min-height: 0; overflow: hidden;
   background: oklch(0.158 0 0);
+  transition: margin-left .28s cubic-bezier(.32, .72, 0, 1), opacity .2s ease;
 }
+/* Tutup sidebar: geser keluar ke kiri, konten utama melebar mengikuti (DeepSeek). */
+.shell.collapsed .sidebar { margin-left: -268px; opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
 .brand, .nav, .class-defs { flex: none; }
-.brand { display: flex; gap: 11px; align-items: center; padding: 2px 6px 4px; flex: 1 1 auto; min-width: 0; }
+.brand {
+  display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0;
+  padding: 2px 6px 4px; border: 0; border-radius: 10px; cursor: pointer;
+  background: transparent; text-align: left;
+  transition: background .13s;
+}
+.brand:hover { background: oklch(1 0 0 / 5%); }
 .brand strong {
   font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.brand-dot {
-  width: 30px; height: 30px; border-radius: 10px; flex: none;
-  background: linear-gradient(145deg, var(--c3), var(--c2) 65%, var(--c4));
+/* Logo aplikasi: tile gradien dengan glyph gelembung percakapan.
+   Satu sumber SVG (data-logo) diisi oleh app.js. */
+.logo-tile {
+  width: 30px; height: 30px; flex: none; border-radius: 10px;
+  display: grid; place-items: center;
+  background: linear-gradient(145deg, var(--c3), var(--c2) 60%, var(--c4));
   box-shadow: inset 0 1px 0 oklch(1 0 0 / 25%);
 }
+.logo-tile svg { width: 17px; height: 17px; fill: none; stroke: oklch(0.99 0 0); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.empty-logo {
+  width: 54px; height: 54px; margin: 0 auto 18px; border-radius: 17px;
+  display: grid; place-items: center;
+  background: linear-gradient(145deg, var(--c3), var(--c2) 60%, var(--c4));
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 25%), 0 10px 28px oklch(0 0 0 / 34%);
+}
+.empty-logo svg { width: 28px; height: 28px; fill: none; stroke: oklch(0.99 0 0); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 .nav { display: flex; flex-direction: column; gap: 1px; }
 .nav-item {
@@ -99,7 +121,7 @@ button { font: inherit; color: inherit; }
 .status .dot.bad { background: oklch(0.63 0.21 25); }
 
 /* ---------- main ---------- */
-.main { display: flex; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
+.main { display: flex; flex: 1 1 auto; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .view { display: none; flex-direction: column; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .view.active { display: flex; }
 
@@ -122,13 +144,6 @@ button { font: inherit; color: inherit; }
 .thread-inner { width: 100%; max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
 
 .empty { margin: auto; text-align: center; max-width: 520px; }
-.empty-badge {
-  width: 48px; height: 48px; margin: 0 auto 18px; border-radius: 15px;
-  display: grid; place-items: center; font-weight: 700; font-size: 12px; letter-spacing: 0.06em;
-  color: oklch(0.99 0 0);
-  background: linear-gradient(145deg, var(--c3), var(--c2) 65%, var(--c4));
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 25%), 0 8px 24px oklch(0 0 0 / 30%);
-}
 .empty h2 { margin: 0 0 10px; font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
 .empty p { margin: 0 auto 18px; color: var(--muted-fg); font-size: 13.5px; line-height: 1.65; max-width: 430px; }
 .chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
@@ -492,16 +507,26 @@ td.gold { color: var(--muted-fg); }
 }
 
 /* ---------- rail saat sidebar ditutup ---------- */
-.shell.collapsed { grid-template-columns: minmax(0, 1fr); }
-.shell.collapsed .sidebar { display: none; }
-.shell.collapsed .topbar { padding-left: 156px; }
+.shell.collapsed .topbar { padding-left: 196px; }
 .rail {
   position: fixed; top: 16px; left: 16px; z-index: 30;
+  display: flex; align-items: center; gap: 10px;
+}
+.rail:not(.hidden) { animation: rail-in .24s cubic-bezier(.32, .72, 0, 1) both; }
+@keyframes rail-in { from { opacity: 0; transform: translateX(-10px); } }
+@media (prefers-reduced-motion: reduce) { .rail:not(.hidden) { animation: none; } }
+.rail-logo {
+  width: 34px; height: 34px; padding: 0; border: 0; border-radius: 10px;
+  display: grid; place-items: center; cursor: pointer; background: transparent;
+  transition: transform .15s;
+}
+.rail-logo:hover { transform: scale(1.06); }
+.rail-pill {
   display: flex; align-items: center; gap: 2px; padding: 4px;
   background: oklch(1 0 0 / 6%); border-radius: 12px;
   backdrop-filter: blur(6px);
 }
-.rail .icon-btn { width: 30px; height: 30px; }
+.rail-pill .icon-btn { width: 30px; height: 30px; }
 
 /* ---------- menu konteks mengambang ---------- */
 .ctx {
