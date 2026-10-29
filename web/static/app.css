@@ -239,3 +239,50 @@ tr.wrong td.pred { color: oklch(0.7 0.19 25); }
 .hidden { display: none !important; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: oklch(1 0 0 / 14%); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+
+/* ---------- session list ---------- */
+.sessions { min-height: 0; }
+.sessions-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.sessions-head h4 { margin: 0; }
+#new-session {
+  width: 20px; height: 20px; display: grid; place-items: center; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 6px; background: transparent;
+  color: var(--muted-fg); font-size: 14px; line-height: 1; padding: 0;
+}
+#new-session:hover { color: var(--fg); border-color: var(--ring); background: var(--muted); }
+
+.session-list { display: flex; flex-direction: column; gap: 2px; max-height: 42vh; overflow-y: auto; }
+.session-empty { margin: 0 0 0 2px; font-size: 11.5px; color: var(--muted-fg); }
+
+.session-item {
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; padding: 3px 4px 3px 6px;
+}
+.session-item:hover { background: var(--muted); }
+.session-item.active { background: var(--card); }
+.session-open {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  border: 0; background: transparent; color: inherit; font: inherit;
+  text-align: left; cursor: pointer; padding: 4px 2px;
+}
+.session-title {
+  font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--muted-fg);
+}
+.session-item.active .session-title, .session-item:hover .session-title { color: var(--fg); }
+.session-open small { font-size: 10px; color: var(--muted-fg); opacity: 0.75; }
+
+.session-actions { display: none; gap: 1px; flex: none; }
+.session-item:hover .session-actions, .session-item.active .session-actions { display: flex; }
+.session-actions button {
+  width: 21px; height: 21px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  border: 0; border-radius: 5px; background: transparent; color: var(--muted-fg);
+}
+.session-actions button:hover { background: oklch(1 0 0 / 10%); color: var(--fg); }
+.session-actions svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+.session-rename {
+  width: 100%; font: inherit; font-size: 12px; padding: 3px 5px; margin: -3px 0;
+  color: var(--fg); background: var(--bg);
+  border: 1px solid var(--ring); border-radius: 5px; outline: none;
+}

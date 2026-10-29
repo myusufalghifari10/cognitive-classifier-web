@@ -1,24 +1,46 @@
 const $ = (sel) => document.querySelector(sel);
 
-const state = {
-  labels: ["C0", "C1", "C2", "C3", "C4"],
-  names: [],
-  job: null,
-  rows: [],
-  after: -1,
-};
-
 const CLASS_NAMES = [
   "Bukan Kehadiran Kognitif", "Pemantik Diskusi",
   "Eksplorasi", "Integrasi", "Resolusi",
 ];
 
+const state = {
+  labels: ["C0", "C1", "C2", "C3", "C4"],
+  names: CLASS_NAMES,
+  sessions: [],
+  active: null,
+  job: null,
+  rows: [],
+  after: -1,
+  busy: false,
+};
+
+const thread = $("#thread");
+const threadInner = $("#thread-inner");
+const chatEmpty = $("#chat-empty");
+const input = $("#chat-input");
+const sendBtn = $("#chat-send");
+
+/* ---------------- api ---------------- */
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: opts.body ? { "Content-Type": "application/json" } : undefined,
+    ...opts,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+}
+
 /* ---------------- boot ---------------- */
 
 async function boot() {
   renderLegend();
+  renderChips();
   try {
-    const h = await (await fetch("/api/health")).json();
+    const h = await api("/api/health");
     state.labels = h.labels || state.labels;
     state.names = h.class_names || CLASS_NAMES;
     $("#status-dot").className = "dot " + (h.api_key ? "ok" : "bad");
@@ -28,7 +50,7 @@ async function boot() {
     $("#status-dot").className = "dot bad";
     $("#status-text").textContent = "backend tidak merespons";
   }
-  renderChips();
+  await loadSessions(true);
 }
 
 function renderLegend() {
@@ -43,43 +65,213 @@ function renderChips() {
     .join("");
 }
 
-/* ---------------- view switch ---------------- */
+/* ---------------- sessions ---------------- */
 
-document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-    btn.classList.add("active");
-    $(`#view-${btn.dataset.view}`).classList.add("active");
-  });
-});
-
-/* ---------------- chat ---------------- */
-
-const thread = $("#thread");
-const input = $("#chat-input");
-const sendBtn = $("#chat-send");
-let threadInner = null;
-
-function ensureThread() {
-  if (!threadInner) {
-    $("#chat-empty")?.remove();
-    threadInner = document.createElement("div");
-    threadInner.className = "thread-inner";
-    thread.appendChild(threadInner);
+async function loadSessions(openLatest = false) {
+  try {
+    state.sessions = (await api("/api/sessions")).sessions;
+  } catch {
+    state.sessions = [];
   }
-  return threadInner;
+  renderSessionList();
+  if (openLatest) {
+    if (state.sessions.length) await openSession(state.sessions[0].id);
+    else showEmpty();
+  }
 }
 
-function bubble(text) {
+function fmtWhen(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+}
+
+function renderSessionList() {
+  const list = $("#session-list");
+  if (!state.sessions.length) {
+    list.innerHTML = `<p class="session-empty">Belum ada sesi.</p>`;
+    return;
+  }
+  list.innerHTML = state.sessions.map((s) => `
+    <div class="session-item${s.id === state.active ? " active" : ""}" data-id="${s.id}">
+      <button class="session-open" data-act="open">
+        <span class="session-title"></span>
+        <small>${s.n_messages} pesan · ${fmtWhen(s.updated_at)}</small>
+      </button>
+      <div class="session-actions">
+        <button data-act="rename" title="Ganti nama" aria-label="Ganti nama">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        </button>
+        <button data-act="delete" title="Hapus" aria-label="Hapus">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+    </div>`).join("");
+
+  // judul diisi via textContent (judul bisa berasal dari teks user)
+  state.sessions.forEach((s) => {
+    const el = list.querySelector(`.session-item[data-id="${s.id}"] .session-title`);
+    if (el) el.textContent = s.title;
+  });
+}
+
+async function openSession(id) {
+  let data;
+  try {
+    data = await api(`/api/sessions/${id}`);
+  } catch (err) {
+    await loadSessions();
+    return;
+  }
+  state.active = id;
+  renderSessionList();
+  renderThread(data.messages || []);
+}
+
+async function newSession() {
+  const s = await api("/api/sessions", { method: "POST", body: JSON.stringify({}) });
+  state.sessions.unshift({ id: s.id, title: s.title, updated_at: new Date().toISOString(), n_messages: 0 });
+  state.active = s.id;
+  renderSessionList();
+  renderThread([]);
+  input.focus();
+  return s.id;
+}
+
+async function renameSession(id, item) {
+  const current = state.sessions.find((s) => s.id === id);
+  if (!current) return;
+  const titleEl = item.querySelector(".session-title");
+  const backup = current.title;
+  const field = document.createElement("input");
+  field.className = "session-rename";
+  field.value = backup;
+  field.maxLength = 80;
+  titleEl.replaceWith(field);
+  field.focus();
+  field.select();
+
+  let closed = false;
+  const finish = async (commit) => {
+    if (closed) return;
+    closed = true;
+    const title = field.value.trim();
+    if (commit && title && title !== backup) {
+      try {
+        await api(`/api/sessions/${id}`, { method: "PATCH", body: JSON.stringify({ title }) });
+        current.title = title;
+      } catch (err) {
+        alert(`Gagal ganti nama: ${err.message}`);
+      }
+    }
+    await loadSessions();
+  };
+
+  field.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") finish(true);
+    if (e.key === "Escape") finish(false);
+  });
+  field.addEventListener("blur", () => finish(true));
+}
+
+async function deleteSession(id) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s) return;
+  if (!confirm(`Hapus sesi "${s.title}"? Riwayatnya hilang permanen.`)) return;
+  try {
+    await api(`/api/sessions/${id}`, { method: "DELETE" });
+  } catch (err) {
+    alert(`Gagal hapus: ${err.message}`);
+    return;
+  }
+  if (state.active === id) state.active = null;
+  await loadSessions();
+  if (!state.active) {
+    if (state.sessions.length) await openSession(state.sessions[0].id);
+    else showEmpty();
+  }
+}
+
+$("#session-list").addEventListener("click", (e) => {
+  const item = e.target.closest(".session-item");
+  if (!item) return;
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  const id = item.dataset.id;
+  if (act === "rename") renameSession(id, item);
+  else if (act === "delete") deleteSession(id);
+  else if (act === "open" && id !== state.active) openSession(id);
+});
+
+$("#new-session").addEventListener("click", () => newSession());
+
+/* ---------------- thread rendering ---------------- */
+
+function showEmpty() {
+  threadInner.innerHTML = "";
+  threadInner.classList.add("hidden");
+  chatEmpty.classList.remove("hidden");
+}
+
+function showThread() {
+  chatEmpty.classList.add("hidden");
+  threadInner.classList.remove("hidden");
+}
+
+function renderThread(messages) {
+  threadInner.innerHTML = "";
+  if (!messages.length) {
+    showEmpty();
+    return;
+  }
+  showThread();
+  messages.forEach((m) => {
+    if (m.role === "user") appendUser(m.text);
+    else appendAssistant(m, m.thinking || "");
+  });
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function appendUser(text) {
   const wrap = document.createElement("div");
   wrap.className = "msg user";
   wrap.innerHTML = `<div class="avatar">YOU</div>
     <div class="body"><div class="who">Postingan</div><div class="text"></div></div>`;
   wrap.querySelector(".text").textContent = text;
-  ensureThread().appendChild(wrap);
+  threadInner.appendChild(wrap);
+  showThread();
   thread.scrollTop = thread.scrollHeight;
   return wrap;
+}
+
+function cardHtml(rec, thinkText) {
+  const isFail = !state.labels.includes(rec.pred);
+  const idx = state.labels.indexOf(rec.pred);
+  const cls = isFail ? "FAIL" : rec.pred;
+  const meta = [
+    rec.latency_ms ? `${(rec.latency_ms / 1000).toFixed(1)}s` : "",
+    rec.finish || "",
+    rec.budget ? `budget ${rec.budget}` : "",
+  ].filter(Boolean).join(" · ");
+  return `
+    <div class="card-head">
+      <span class="badge ${cls}">${rec.pred}</span>
+      <span class="class-name">${isFail ? "tidak terparse" : state.names[idx] || ""}</span>
+      <span class="meta">${meta}</span>
+    </div>
+    <div class="reason"></div>
+    ${thinkText ? `<details class="think"><summary>proses berpikir</summary><div class="think-body"></div></details>` : ""}`;
+}
+
+function fillCard(card, rec, thinkText) {
+  card.querySelector(".reason").textContent =
+    rec.reason || rec.error || "(model tidak memberi alasan)";
+  const body = card.querySelector(".think-body");
+  if (body) body.textContent = thinkText;
 }
 
 function assistantShell() {
@@ -92,66 +284,71 @@ function assistantShell() {
         <details class="think hidden"><summary>proses berpikir</summary><div class="think-body"></div></details>
       </div>
     </div>`;
-  ensureThread().appendChild(wrap);
+  threadInner.appendChild(wrap);
+  showThread();
   thread.scrollTop = thread.scrollHeight;
   return wrap;
 }
 
-function renderResult(shell, rec, liveReasoning) {
+function appendAssistant(rec, thinkText) {
+  const shell = assistantShell();
   const card = shell.querySelector(".card");
-  const isFail = !state.labels.includes(rec.pred);
-  const idx = state.labels.indexOf(rec.pred);
-  const cls = isFail ? "FAIL" : rec.pred;
-  const thinkText = liveReasoning || rec.thinking_head || "";
-  const meta = [
-    `${(rec.latency_ms / 1000).toFixed(1)}s`,
-    rec.finish || "—",
-    rec.budget ? `budget ${rec.budget}` : "",
-  ].filter(Boolean).join(" · ");
+  card.innerHTML = cardHtml(rec, thinkText);
+  fillCard(card, rec, thinkText);
+  thread.scrollTop = thread.scrollHeight;
+  return shell;
+}
 
-  // .think ikut dibangun di sini: card.innerHTML membuang anak lama, jadi
-  // jangan pernah query elemen anak sesudah baris ini.
-  card.innerHTML = `
-    <div class="card-head">
-      <span class="badge ${cls}">${rec.pred}</span>
-      <span class="class-name">${isFail ? "tidak terparse" : state.names[idx] || ""}</span>
-      <span class="meta">${meta}</span>
-    </div>
-    <div class="reason"></div>
-    ${thinkText ? `<details class="think"><summary>proses berpikir</summary><div class="think-body"></div></details>` : ""}`;
-  card.querySelector(".reason").textContent =
-    rec.reason || rec.error || "(model tidak memberi alasan)";
-  const thinkBody = card.querySelector(".think-body");
-  if (thinkBody) thinkBody.textContent = thinkText;
+/* ---------------- chat ---------------- */
+
+async function persist(id, msg) {
+  try {
+    return await api(`/api/sessions/${id}/messages`,
+      { method: "POST", body: JSON.stringify(msg) });
+  } catch (err) {
+    console.warn("gagal simpan pesan:", err.message);
+    return null;
+  }
 }
 
 async function sendChat(ev) {
   ev.preventDefault();
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || state.busy) return;
 
+  state.busy = true;
   sendBtn.disabled = true;
   input.value = "";
   input.style.height = "auto";
-  bubble(text);
-  const shell = assistantShell();
-  const pending = shell.querySelector(".pending-text");
-  const think = shell.querySelector(".think");
-  const thinkBody = shell.querySelector(".think-body");
-  let reasoning = "";
-  let raf = 0;
-  // ~2500 delta per sampel: tulis DOM sekali per frame, bukan per token.
-  const repaintThink = () => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      think.classList.remove("hidden");
-      thinkBody.textContent = reasoning.slice(-4000);
-      thinkBody.scrollTop = thinkBody.scrollHeight;
-    });
-  };
+  let shell = null;
 
   try {
+    if (!state.active) await newSession();
+    const sessionId = state.active;
+
+    await persist(sessionId, { role: "user", text });
+    appendUser(text);
+
+    const shellEl = assistantShell();
+    shell = shellEl;
+    const pending = shellEl.querySelector(".pending-text");
+    const card = shellEl.querySelector(".card");
+    const liveThink = shellEl.querySelector(".think");
+    const liveBody = shellEl.querySelector(".think-body");
+    let reasoning = "";
+    let raf = 0;
+    // ~2500 delta per sampel: tulis DOM sekali per frame, bukan per token.
+    const repaint = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        liveThink.classList.remove("hidden");
+        liveBody.textContent = reasoning.slice(-4000);
+        liveBody.scrollTop = liveBody.scrollHeight;
+        pending.textContent = "berpikir…";
+      });
+    };
+
     const res = await fetch("/api/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -162,10 +359,10 @@ async function sendChat(ev) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
-    let done = false;
-    while (!done) {
-      const { value, done: end } = await reader.read();
-      if (end) break;
+    let finished = false;
+    while (!finished) {
+      const { value, done } = await reader.read();
+      if (done) break;
       buf += decoder.decode(value, { stream: true });
       const parts = buf.split("\n\n");
       buf = parts.pop() || "";
@@ -177,22 +374,31 @@ async function sendChat(ev) {
         const data = JSON.parse(dataLine[1]);
         if (ev === "reasoning" || ev === "content") {
           reasoning += data.delta || "";
-          repaintThink();
-          pending.textContent = ev === "reasoning" ? "berpikir…" : "menyusun jawaban…";
+          repaint();
         } else if (ev === "result") {
-          renderResult(shell, data, reasoning);
-          done = true;
+          card.innerHTML = cardHtml(data, reasoning);
+          fillCard(card, data, reasoning);
+          finished = true;
+          await persist(sessionId, {
+            role: "assistant", pred: data.pred, reason: data.reason,
+            thinking: reasoning.slice(0, 8000), latency_ms: data.latency_ms,
+            finish: data.finish, budget: data.budget,
+          });
+          await loadSessions();
         } else if (ev === "error") {
           throw new Error(data.message);
         }
       }
     }
   } catch (err) {
-    shell.querySelector(".card").innerHTML =
-      `<div class="card-head"><span class="badge FAIL">ERROR</span></div>
-       <div class="reason"></div>`;
-    shell.querySelector(".reason").textContent = String(err.message || err);
+    const card = shell?.querySelector(".card");
+    if (card) {
+      card.innerHTML = `<div class="card-head"><span class="badge FAIL">ERROR</span></div>
+        <div class="reason"></div>`;
+      card.querySelector(".reason").textContent = String(err.message || err);
+    }
   } finally {
+    state.busy = false;
     sendBtn.disabled = false;
     input.focus();
     thread.scrollTop = thread.scrollHeight;
@@ -206,6 +412,17 @@ input.addEventListener("keydown", (e) => {
 input.addEventListener("input", () => {
   input.style.height = "auto";
   input.style.height = Math.min(input.scrollHeight, 200) + "px";
+});
+
+/* ---------------- view switch ---------------- */
+
+document.querySelectorAll(".nav-item").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+    btn.classList.add("active");
+    $(`#view-${btn.dataset.view}`).classList.add("active");
+  });
 });
 
 /* ---------------- batch ---------------- */
@@ -259,8 +476,7 @@ $("#batch-start").addEventListener("click", async () => {
   } catch (err) {
     $("#result-panel").classList.remove("hidden");
     $("#metrics").innerHTML = `<div class="metric"><span>error</span><strong>gagal</strong></div>`;
-    $("#result-body").innerHTML =
-      `<tr><td colspan="5" class="reason">${err.message}</td></tr>`;
+    $("#result-body").innerHTML = `<tr><td colspan="5" class="reason">${err.message}</td></tr>`;
     $("#batch-start").disabled = false;
   }
 });
@@ -301,8 +517,7 @@ async function poll() {
 function appendRow(rec) {
   if ($("#only-wrong").checked && rec.gold && rec.pred === rec.gold) return;
   const tr = document.createElement("tr");
-  const wrong = rec.gold && rec.pred !== rec.gold;
-  if (wrong) tr.classList.add("wrong");
+  if (rec.gold && rec.pred !== rec.gold) tr.classList.add("wrong");
   tr.innerHTML = `
     <td class="idx">${rec.idx}</td>
     <td class="pred"><span class="badge ${rec.pred}">${rec.pred}</span></td>

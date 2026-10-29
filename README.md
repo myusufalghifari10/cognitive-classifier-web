@@ -38,6 +38,10 @@ keperluan benchmarking, bukan lewat app.
 - **Unduhan** — `CSV` (teks + label + alasan), `Report` (teks polos seperti report
   benchmark), `Confusion` (PNG), `JSONL` (record per sampel).
 - Biaya per run ditampilkan sebagai estimasi dari `usage` token DeepSeek.
+- **Sesi chat** tersimpan di server (`data/sessions/<id>.json`), bukan di browser:
+  riwayat tetap ada setelah refresh, tutup tab, bahkan restart server. Sesi bisa
+  diganti nama dan dihapus dari sidebar. Judul otomatis diambil dari pesan pertama.
+  Tiap pesan ditulis dengan `os.replace` (atomik) jadi file tidak pernah setengah jadi.
 
 ## Struktur
 
@@ -48,6 +52,7 @@ web/app.py           FastAPI: SSE chat, job batch, unduhan
 web/static/          index.html + app.css + app.js (vanilla, tanpa build step)
 prompts/             system_few_shot.md, system_zero_shot.md, user.md (byte-identik)
 runs/                output per job (input.csv + artefak)
+data/sessions/       history chat, satu file JSON per sesi (tidak di-commit)
 ```
 
 ## Verifikasi reproduksinya

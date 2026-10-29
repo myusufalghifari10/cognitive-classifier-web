@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -26,10 +27,40 @@ MAX_ROWS = 1000          # pagar biaya: tanpa login, endpoint ini bisa membakar 
 ARTIFACTS = {"csv": "results_{tag}.csv", "report": "report_{tag}.txt",
              "png": "confusion_matrix_{tag}.png", "jsonl": "predictions_{tag}.jsonl"}
 
+# History chat: satu file per session (delete/rename = operasi file, kerusakan
+# terbatas satu session, tidak perlu rewrite seluruh riwayat tiap pesan).
+SESSIONS = ROOT / "data" / "sessions"
+SESSIONS.mkdir(parents=True, exist_ok=True)
+_session_lock = asyncio.Lock()
+
 app = FastAPI(title="Cognitive Classification — CoI")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 JOBS: dict[str, dict] = {}
+
+
+def _now() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _session_path(session_id: str) -> Path:
+    if not (len(session_id) == 12 and all(c in "0123456789abcdef" for c in session_id)):
+        raise HTTPException(400, "id session tidak valid")
+    return SESSIONS / f"{session_id}.json"
+
+
+def _read_session(session_id: str) -> dict:
+    path = _session_path(session_id)
+    if not path.exists():
+        raise HTTPException(404, "Session tidak ditemukan.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_session(data: dict) -> None:
+    path = _session_path(data["id"])
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, path)          # atomik: session tidak pernah setengah tertulis
 
 
 def sse(event: str, data: dict) -> str:
@@ -165,3 +196,81 @@ async def api_download(job_id: str, kind: str):
     if not path.exists():
         raise HTTPException(404, f"{name} belum tersedia (job {job['status']}).")
     return FileResponse(path, filename=f"{job_id}_{name}")
+
+
+# ---------------------------------------------------------------- sessions
+
+@app.get("/api/sessions")
+async def api_sessions():
+    items = []
+    for path in SESSIONS.glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue                   # satu file rusak jangan menjatuhkan seluruh daftar
+        items.append({"id": data["id"], "title": data.get("title") or "Sesi baru",
+                      "updated_at": data.get("updated_at"),
+                      "n_messages": len(data.get("messages") or [])})
+    items.sort(key=lambda x: x["updated_at"] or "", reverse=True)
+    return {"sessions": items}
+
+
+@app.post("/api/sessions")
+async def api_session_create(payload: dict | None = None):
+    async with _session_lock:
+        session_id = uuid.uuid4().hex[:12]
+        title = ((payload or {}).get("title") or "Sesi baru").strip()[:80]
+        _write_session({"id": session_id, "title": title, "created_at": _now(),
+                        "updated_at": _now(), "messages": []})
+    return {"id": session_id, "title": title}
+
+
+@app.get("/api/sessions/{session_id}")
+async def api_session_get(session_id: str):
+    return _read_session(session_id)
+
+
+@app.patch("/api/sessions/{session_id}")
+async def api_session_rename(session_id: str, payload: dict):
+    title = (payload.get("title") or "").strip()[:80]
+    if not title:
+        raise HTTPException(400, "Judul tidak boleh kosong.")
+    async with _session_lock:
+        data = _read_session(session_id)
+        data["title"] = title
+        data["updated_at"] = _now()
+        _write_session(data)
+    return {"id": session_id, "title": title}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def api_session_delete(session_id: str):
+    path = _session_path(session_id)
+    if not path.exists():
+        raise HTTPException(404, "Session tidak ditemukan.")
+    async with _session_lock:
+        path.unlink()
+    return {"deleted": session_id}
+
+
+@app.post("/api/sessions/{session_id}/messages")
+async def api_session_append(session_id: str, payload: dict):
+    """Simpan satu pesan: user {text} atau assistant {pred, reason, thinking, latency_ms}."""
+    role = payload.get("role")
+    if role not in ("user", "assistant"):
+        raise HTTPException(400, "role harus 'user' atau 'assistant'.")
+    msg = {k: v for k, v in payload.items() if k != "role"}
+    if role == "user":
+        msg["text"] = (msg.get("text") or "").strip()
+        if not msg["text"]:
+            raise HTTPException(400, "text kosong.")
+    msg["role"] = role
+    msg["at"] = _now()
+    async with _session_lock:
+        data = _read_session(session_id)
+        data["messages"].append(msg)
+        if role == "user" and data.get("title") in (None, "", "Sesi baru"):
+            data["title"] = msg["text"][:60]      # judul otomatis dari pesan pertama
+        data["updated_at"] = msg["at"]
+        _write_session(data)
+    return {"ok": True, "title": data["title"], "n_messages": len(data["messages"])}

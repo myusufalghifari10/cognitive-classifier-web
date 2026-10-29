@@ -29,6 +29,14 @@
       </button>
     </nav>
 
+    <div class="side-section sessions">
+      <div class="sessions-head">
+        <h4>Sesi</h4>
+        <button id="new-session" title="Sesi baru" aria-label="Sesi baru">+</button>
+      </div>
+      <div class="session-list" id="session-list"></div>
+    </div>
+
     <div class="side-section">
       <h4>Kelas</h4>
       <ul class="legend" id="legend"></ul>
@@ -58,6 +66,7 @@
           <p>Model memilih tepat satu dari lima kelas dan menjelaskan tindakan kognitif penulisnya.</p>
           <div class="chips" id="chat-chips"></div>
         </div>
+        <div class="thread-inner hidden" id="thread-inner"></div>
       </div>
 
       <form class="composer" id="composer">
