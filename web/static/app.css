@@ -183,23 +183,27 @@ button { font: inherit; color: inherit; }
 }
 .reason { font-size: 15px; line-height: 1.74; color: var(--fg-soft); }
 
-details.think { margin-top: 14px; }
+/* Panel proses berpikir: Toggle di ATAS jawaban, isi tergulung di bawah toggle
+   dengan garis kiri tipis (gaya chat.deepseek.com). */
+details.think { margin: 0 0 14px; }
 details.think summary {
-  cursor: pointer; list-style: none;
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12px; color: var(--muted-fg);
-  padding: 6px 11px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  list-style: none; cursor: pointer;
+  padding: 5px 9px 5px 7px; border-radius: 9px;
+  font-size: 13px; color: var(--muted-fg);
   transition: background .13s, color .13s;
 }
 details.think summary::-webkit-details-marker { display: none; }
-details.think summary::before { content: "▸"; font-size: 9px; line-height: 1; }
 details.think summary:hover { background: oklch(1 0 0 / 6%); color: var(--fg); }
-details.think[open] summary::before { content: "▾"; }
+.think-ic { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+.chev-ic { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.8; transition: transform .15s; }
+details.think[open] .chev-ic { transform: rotate(180deg); }
 .think-body {
-  margin-top: 10px; padding: 14px 16px; border-radius: 14px; background: var(--sunken);
-  font-family: var(--mono); font-size: 12px; line-height: 1.7;
-  color: var(--muted-fg); white-space: pre-wrap;
-  max-height: 300px; overflow-y: auto;
+  margin: 8px 0 16px; padding: 2px 0 2px 16px;
+  border-left: 2px solid oklch(1 0 0 / 14%);
+  font-size: 13.5px; line-height: 1.72; color: var(--muted-fg);
+  white-space: pre-wrap; max-height: 320px; overflow-y: auto;
+  font-family: var(--font);
 }
 
 .pending { display: flex; align-items: center; gap: 9px; color: var(--muted-fg); font-size: 13px; }

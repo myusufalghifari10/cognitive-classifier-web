@@ -463,6 +463,9 @@ function appendUser(text) {
   return wrap;
 }
 
+const THINK_CHEV = '<svg class="chev-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const THINK_IC = '<svg class="think-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M5 6l1.5 1.5M19 6l-1.5 1.5"/><path d="M9 17h6M10 20h4"/><path d="M8.5 13.5a4.5 4.5 0 1 1 7 0c-.6.8-1 1.4-1 2.5h-5c0-1.1-.4-1.7-1-2.5z"/></svg>';
+
 function cardHtml(rec, thinkText) {
   const isFail = !state.labels.includes(rec.pred);
   const idx = state.labels.indexOf(rec.pred);
@@ -472,14 +475,17 @@ function cardHtml(rec, thinkText) {
     rec.finish || "",
     rec.budget ? `budget ${rec.budget}` : "",
   ].filter(Boolean).join(" · ");
+  const thinkLabel = rec.latency_ms
+    ? `Proses berpikir · ${(rec.latency_ms / 1000).toFixed(1)}s`
+    : "Proses berpikir";
   return `
     <div class="card-head">
       <span class="badge ${cls}">${rec.pred}</span>
       <span class="class-name">${isFail ? "tidak terparse" : state.names[idx] || ""}</span>
       <span class="meta">${meta}</span>
     </div>
-    <div class="reason"></div>
-    ${thinkText ? `<details class="think"><summary>proses berpikir</summary><div class="think-body"></div></details>` : ""}`;
+    ${thinkText ? `<details class="think"><summary>${THINK_IC}${thinkLabel}${THINK_CHEV}</summary><div class="think-body"></div></details>` : ""}
+    <div class="reason"></div>`;
 }
 
 function fillCard(card, rec, thinkText) {
@@ -495,8 +501,8 @@ function assistantShell() {
   wrap.innerHTML = `<div class="avatar">AI</div>
     <div class="body"><div class="who">Klasifikator CoI</div>
       <div class="card">
+        <details class="think hidden"><summary>${THINK_IC}Proses berpikir${THINK_CHEV}</summary><div class="think-body"></div></details>
         <div class="pending"><span class="pulse"></span><span class="pending-text">menganalisis…</span></div>
-        <details class="think hidden"><summary>proses berpikir</summary><div class="think-body"></div></details>
       </div>
     </div>`;
   threadInner.appendChild(wrap);
