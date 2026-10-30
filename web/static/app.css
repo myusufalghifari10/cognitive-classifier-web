@@ -390,7 +390,7 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
 .send.is-off:hover { transform: none; }
 .send svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 /* Saat model bekerja, panah berubah jadi kotak berhenti (persegi terisi). */
-.send .ic-stop { display: none; }
+.send .ic-stop { display: none; width: 24px; height: 24px; }
 .send.is-stop .ic-arrow { display: none; }
 .send.is-stop .ic-stop { display: block; }
 .send .ic-stop rect { fill: currentColor; stroke: none; }
