@@ -1,131 +1,254 @@
 # Nalaraya
 
-App web untuk klasifikasi **Cognitive Presence** (CoI, 5 kelas) atas
-postingan diskusi: satu teks lewat tampilan chat, atau banyak teks sekaligus lewat
-upload CSV. Tanpa login, tanpa database.
+App web untuk klasifikasi **Cognitive Presence** (CoI, 5 kelas) atas postingan
+diskusi: satu teks lewat tampilan chat, atau banyak teks sekaligus lewat upload
+CSV. Tanpa login, tanpa database, tanpa build step di frontend.
 
-Hasil klasifikasi memakai **prompt, parser, dan metrik yang sama** dengan project
-benchmark `Cognitive-Classification-Using-LLM` — file prompt di `prompts/` disalin
-byte-identik dari sana (md5 identik), jadi label yang keluar setara dengan report
-benchmark di repo itu.
-
-## Jalankan
-
-```bash
-cd ~/Yusuf/Kuliah/ProjectSemester7/cognitive-classifier-web
-~/myenv/bin/python3 -m uvicorn web.app:app --host 127.0.0.1 --port 8000
-```
-
-Buka http://127.0.0.1:8000
-
-API key DeepSeek dibaca dari env `DEEPSEEK_API_KEY`, kalau kosong dari `~/.deepseek_key`.
-Key hanya dipakai di server, tidak pernah dikirim ke browser.
-
-**App ini tanpa login** — bind ke `127.0.0.1` saja. Siapa pun yang bisa menjangkau
-port ini bisa membakar kredit API.
+Prompt, parser, dan metriknya sama dengan project benchmark
+`Cognitive-Classification-Using-LLM`: berkas di `prompts/` disalin byte-identik
+(md5 identik), jadi label yang keluar setara dengan report benchmark di repo itu.
 
 ## Fitur
 
-Prompt **terkunci few-shot** (`prompts/system_few_shot.md`); tidak ada pilihan
-few/zero di UI. Zero-shot hanya tersedia lewat CLI `core.batch --mode zero`, untuk
-keperluan benchmarking, bukan lewat app.
+- **Klasifikasi Teks**: satu postingan, keluar label `C0` sampai `C4` plus alasan,
+  dengan proses berpikir model di-stream langsung dan bisa dibuka.
+- **Upload CSV**: kolom `text` wajib, kolom `label` (atau `gold` / `kelas`)
+  opsional. Kalau ada gold, dihitung akurasi, macro-F1, weighted-F1, per kelas,
+  dan confusion matrix. Batas 1000 baris per run.
+- **Berhenti kapan saja**: satu tombol dua peran. Saat model bekerja, tombol
+  kirim di chat berubah menjadi kotak berhenti, dan tombol CSV berubah menjadi
+  "Hentikan klasifikasi". Baris yang sedang jalan diselesaikan atau dibatalkan,
+  sisanya dilewati, hasil parsial tetap disimpan.
+- **Lanjutkan**: baris yang gagal diurai, atau yang belum sempat dikerjakan
+  karena dihentikan atau server mati, bisa dilanjutkan tanpa unggah ulang CSV.
+- **Salin per pesan**: satu ikon di bawah tiap pesan untuk menyalin teks yang
+  dikirim, atau label plus alasan dari jawaban model.
+- **Riwayat di server**: sesi chat dan hasil CSV tersimpan sebagai satu berkas
+  JSON per sesi di `data/sessions/`, jadi tetap ada setelah refresh, tutup tab,
+  atau restart server. Judul otomatis dari pesan pertama, bisa diganti nama,
+  dipin, dan dihapus.
+- **Pencarian sesi (Ctrl+K)**: mencocokkan judul dan isi pesan, menampilkan
+  potongan yang cocok, lalu klik untuk membuka.
+- **Pilih banyak**: mode centang dengan aksi massal pin dan hapus.
+- **Bagikan**: unduh JSON, unduh Markdown, atau salin ke clipboard sebagai teks
+  biasa, Markdown, atau JSON.
+- **Unduhan hasil CSV**: `CSV` (teks, label, alasan), `Report` (teks polos
+  seperti report benchmark), `Confusion` (PNG), `JSONL` (satu record per sampel).
+- **Dua tema**: gelap (bawaan) dan terang, tombol matahari dan bulan di kanan
+  atas. Pilihan disimpan di browser.
+- **Responsif**: di layar sempit sidebar menjadi laci, tabel menyembunyikan
+  kolom Latency supaya tidak perlu digeser mendatar.
+- **Estimasi biaya**: dihitung dari `usage` token DeepSeek pada setiap run.
 
-- **Klasifikasi Teks** — postingan → label `C0..C4` + alasan, dengan proses berpikir
-  model di-stream live (SSE) dan bisa dibuka lewat "proses berpikir".
-- **Upload CSV** — kolom `text` wajib, kolom `label` (atau `gold`/`kelas`) opsional.
-  Kalau ada gold: akurasi, macro-F1, weighted-F1, per-class, confusion matrix.
-  Batas 1000 baris per run. Paralel otomatis: baris pertama dikirim sendirian
-  dulu (mengisi KV-cache prompt di DeepSeek), baru sisanya serentak maks 64.
-- **Unduhan** — `CSV` (teks + label + alasan), `Report` (teks polos seperti report
-  benchmark), `Confusion` (PNG), `JSONL` (record per sampel).
-- Biaya per run ditampilkan sebagai estimasi dari `usage` token DeepSeek.
-- **Sidebar bisa ditutup.** Tombol panel di header menyembunyikan sidebar dan
-  menggantinya dengan rail kecil berisi buka-sidebar, cari, dan obrolan baru.
-  Keadaan terakhir diingat di browser (localStorage).
-- **Kebab per sesi.** Titik tiga di kanan baris (muncul saat hover) membuka menu:
-  ganti nama, pin, bagikan, pilih banyak, hapus. Sesi yang di-pin naik ke grup
-  `Pinned` paling atas; sisanya dikelompokkan per tanggal.
-- **Pilih banyak.** Mode centang dengan aksi massal pin dan hapus.
-- **Pencarian sesi (Ctrl+K).** Mencocokkan judul DAN isi pesan, menampilkan
-  potongan teks yang cocok dengan sorotan, lalu klik untuk membuka sesinya.
-- **Bagikan.** Submenu per sesi: unduh JSON (format aplikasi), unduh Markdown,
-  atau copy ke clipboard sebagai teks biasa, Markdown, atau JSON.
-- **Sesi chat** tersimpan di server (`data/sessions/<id>.json`), bukan di browser:
-  riwayat tetap ada setelah refresh, tutup tab, bahkan restart server. Sesi bisa
-  diganti nama dan dihapus dari sidebar. Judul otomatis diambil dari pesan pertama.
-  Tiap pesan ditulis dengan `os.replace` (atomik) jadi file tidak pernah setengah jadi.
-- **Hasil CSV juga jadi sesi.** Begitu upload diklasifikasi, job muncul di sidebar
-  sebagai sesi berlabel `CSV` (judul = nama file, subjudul = jumlah baris +
-  akurasi). Klik untuk membuka lagi kapan pun: tabel, metrik, dan tombol unduhan
-  dibangun ulang dari artefak di `runs/<job_id>/`, bukan dari memori — jadi tetap
-  bisa dibuka setelah server restart. Menghapus sesi hanya menghapus entrinya;
-  berkas hasil di `runs/` tetap ada.
+## Persyaratan
+
+- Python 3.10 atau lebih baru
+- API key DeepSeek (dipakai hanya di server, tidak pernah dikirim ke browser)
+- Koneksi internet
+
+## Instalasi dan menjalankan
+
+Perintah di bawah dijalankan dari akar folder proyek (folder yang berisi
+`README.md` ini). Ganti bagian API key dengan key milik Anda sendiri.
+
+### Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+export DEEPSEEK_API_KEY="sk-..."
+python -m uvicorn web.app:app --host 127.0.0.1 --port 8000
+```
+
+### macOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+export DEEPSEEK_API_KEY="sk-..."
+python -m uvicorn web.app:app --host 127.0.0.1 --port 8000
+```
+
+### Windows (PowerShell)
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+$env:DEEPSEEK_API_KEY = "sk-..."
+python -m uvicorn web.app:app --host 127.0.0.1 --port 8000
+```
+
+Kalau PowerShell menolak aktivasi venv, jalankan sekali:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+### Membuka aplikasi
+
+Setelah server menyala, buka di browser:
+
+```
+http://127.0.0.1:8000
+```
+
+Server berhenti dengan `Ctrl+C` di terminal yang sama. Untuk menjalankan lagi
+nantinya, cukup aktifkan venv lalu ulangi baris `python -m uvicorn ...`.
+
+### Soal API key
+
+Key dibaca dari env `DEEPSEEK_API_KEY`. Kalau variabel itu kosong, app mencoba
+membaca berkas `~/.deepseek_key` (Windows: `C:\Users\<nama>\.deepseek_key`).
+Cara berkas ini lebih aman untuk pemakaian sehari-hari karena key tidak menempel
+di riwayat shell:
+
+```bash
+printf 'sk-...' > ~/.deepseek_key
+chmod 600 ~/.deepseek_key
+```
+
+## Cara pakai
+
+### Klasifikasi teks
+
+Tempel satu postingan di kotak bawah, tekan Enter (Shift+Enter untuk baris
+baru). Model memilih tepat satu dari lima kelas: `C0` Bukan Kehadiran Kognitif,
+`C1` Pemantik Diskusi, `C2` Eksplorasi, `C3` Integrasi, `C4` Resolusi.
+
+Pilihan kedalaman penalaran ada di kiri bawah kotak: Instant, Low, High, Max.
+Bawaan chat adalah High. Semakin dalam, semakin lama dan semakin mahal, tetapi
+soal yang butuh pembuktian panjang bisa lebih tepat.
+
+Selagi model bekerja, tombol kirim berubah menjadi kotak berhenti. Klik untuk
+menghentikan; permintaan ke DeepSeek ikut diputus, bukan hanya tampilannya.
+
+### Upload CSV
+
+Buka menu Upload CSV, letakkan berkas atau klik area unggah, pilih kedalaman
+penalaran, lalu mulai. Baris pertama dikirim sendirian lebih dulu (mengisi cache
+prompt di DeepSeek), baru sisanya berjalan paralel. Baris fase di bawah bilah
+kemajuan menjelaskan tahap yang sedang berjalan.
+
+Hasil muncul sebagai sesi baru di sidebar dengan label `CSV`, sehingga bisa
+dibuka lagi kapan saja tanpa mengulang klasifikasi.
+
+### Berhenti dan lanjutkan
+
+Tombol yang sama berubah menjadi "Hentikan klasifikasi" saat batch berjalan.
+Setelah berhenti, atau kalau server mati di tengah jalan, tombol "Lanjutkan N
+baris" muncul di panel hasil: yang dikerjakan hanya baris yang belum selesai.
+
+### Riwayat, pencarian, berbagi
+
+- Klik sesi di sidebar untuk membukanya. Titik tiga (atau klik kanan) membuka
+  menu ganti nama, pin, bagikan, pilih banyak, hapus.
+- `Ctrl+K` membuka pencarian judul dan isi pesan, `Esc` menutupnya.
+- Sesi hasil CSV menyimpan tombol unduhan di panel hasil.
+
+### Tema
+
+Tombol matahari dan bulan di kanan atas berganti antara tema gelap dan terang.
+Pilihan disimpan di browser dan dipasang sebelum halaman digambar, jadi tidak
+ada kedip tema saat reload.
 
 ## Struktur
 
 ```
-core/classifier.py   prompt → DeepSeek API → parse → record (satu postingan)
-core/batch.py        CSV → paralel klasifikasi → predictions.jsonl/results.csv/report.txt/png
-web/app.py           FastAPI: SSE chat, job batch, unduhan
-web/static/          index.html + app.css + app.js (vanilla, tanpa build step)
-prompts/             system_few_shot.md, system_zero_shot.md, user.md (byte-identik)
-runs/                output per job (input.csv + artefak)
-data/sessions/       history chat, satu file JSON per sesi (tidak di-commit)
+core/classifier.py   prompt, panggilan DeepSeek, parser, satu record
+core/batch.py        CSV, warm-up lalu paralel, artefak hasil
+web/app.py           FastAPI: stream chat, job batch, sesi, unduhan
+web/static/          index.html, app.css, app.js (vanilla, tanpa build step)
+prompts/             system_few_shot.md, system_zero_shot.md, user.md
+tests/               unittest untuk rute, anggaran token, sesi, batch, layout
+runs/                output per job (input.csv dan artefak), tidak di-commit
+data/sessions/       riwayat, satu berkas JSON per sesi, tidak di-commit
+design.md            sistem desain terkunci (warna, tipe, ruang, state)
 ```
 
-## Verifikasi reproduksinya
+## Tes
 
-Dijalankan pada `data/test_dataset.csv` (120 sampel, gold anotator) dengan
-`deepseek-flash`, prompt few-shot, `response_format=json_object`:
-
-| run | akurasi | macro-F1 | parse-fail |
-|---|---|---|---|
-| `runs/verify120` | 0.9667 | 0.9551 | 0/120 |
-| `runs/verify120_run2` | 0.9333 | 0.8885 | 0/120 |
-
-Oracle dari project lama (`results/DeepSeek-V4.1-Flash/Pre-Finetune/Few-Shot/report_fewshot.txt`):
-**0.9333 / macro-F1 0.9154**, `response_format json_object`. Dua run di atas straddle
-angka itu; rentangnya lebar karena 120 sampel → simpangan baku binomial ±2.2 pp
-(±3 sampel = 2.5 pp). Jadi app ini *setara*, bukan *identik*: seed 42 dikirim, tapi
-sampling tidak dijamin deterministik oleh API.
-
-Reproduksi ulang:
+Memakai `unittest` bawaan Python, tanpa dependensi tes tambahan. Jalankan dari
+akar proyek:
 
 ```bash
-~/myenv/bin/python3 -m core.batch --csv data/test_dataset.csv --out runs/verify --mode few --concurrency 8
-
-Tes (stdlib unittest, tanpa dependensi tambahan):
-
-```bash
-~/myenv/bin/python3 -m unittest discover -s tests -t . -v
+python -m unittest discover -s tests -t . -v
 ```
 
-```
+Ada 10 tes, masing-masing menjaga satu kesalahan nyata yang pernah terjadi:
+
+- rute yang dipanggil frontend harus ada di OpenAPI (regresi rute yang terhapus
+  saat satu fitur dibuang),
+- tangga anggaran token 32k, 64k, 128k saat jawaban terpotong,
+- menghapus sesi lewat API benar-benar menghapus berkasnya,
+- berhenti menulis hasil parsial, bukan membuang semuanya,
+- melanjutkan menggabungkan hasil lama dengan hasil baru per indeks,
+- legenda kelas hanya bersumber dari server,
+- geometri layar sempit: judul tidak tertimpa rail, isi tidak menggulir di
+  belakang tombol rail.
+
+## Akurasi dan biaya
+
+Semua angka diukur pada `data/test_dataset.csv` (120 sampel dengan gold
+anotator), model `deepseek-flash`, prompt few-shot:
+
+| run | akurasi |
+|---|---|
+| prompt awal, thinking default | 0.9167 |
+| prompt awal, thinking max | 0.9500 |
+| setelah perbaikan klausa prompt | 0.9917 sampai 1.0000 |
+| setelah pembersihan prompt dan anggaran 32k | 0.9917 |
+
+Oracle dari project benchmark: **0.9333** (macro-F1 0.9154). Jadi app ini
+setara atau lebih baik pada data yang sama, dengan dua catatan jujur:
+
+1. Angka 0.99 ke atas sebagian **in-sample**, karena klausa prompt disempurnakan
+   dengan melihat kesalahan pada 120 sampel yang sama. Angka out-of-sample harus
+   diukur pada data lain.
+2. 120 sampel berarti simpangan baku binomial sekitar 2.2 poin persen, jadi selisih
+   dua sampai tiga sampel tidak bisa dibedakan dari kebetulan.
+
+Biaya: satu run 120 baris sekitar 0.09 dolar dengan cache prompt panas. Run
+pertama setelah prompt diubah bisa beberapa kali lebih mahal, karena seluruh
+prompt system dibayar di harga cache miss, bukan cache hit.
 
 ## Catatan teknis
 
-- `response_format` DeepSeek hanya `json_object` (bukan `json_schema`), dan docs
-  memperingatkan content bisa kosong → parser 3 lapis (JSON utuh → JSON terkubun →
-  regex `C[0-4]`) plus fallback ke `reasoning_content`, sama seperti `eval.py` lama.
-- Thinking default ON (`--thinking` di CLI / dropdown di UI: low/high/max/off).
-- **Kursor polling pakai jumlah record, bukan idx.** Baris selesai tidak berurutan
-  (paralel), jadi `GET /api/jobs/{id}?offset=N` mengembalikan `records[N:]` sesuai
-  urutan selesai. Versi lama menyaring `idx > after` sehingga baris yang selesai
-  belakangan dengan idx lebih kecil hilang selamanya (gejala: tabel CSV cuma terisi
-  21 dari 120 baris, filter "hanya salah" jadi 1 baris).
-- Diukur pada 6 sampel: input 1.122 token cache-miss + 43.005 cache-hit, output 6.615
-  → **±$0.0014/post** saat harga peak (prompt cache aktif, karena system prompt sama
-  untuk semua post).
-- **Warm-up dulu, lalu paralel.** Diuji dengan prompt sengaja dibuat dingin (prefix
-  unik) pada 6 baris:
+- Prompt **terkunci few-shot** di UI. Zero-shot hanya lewat CLI untuk
+  benchmarking: `python -m core.batch --csv data/test_dataset.csv --out runs/zero --mode zero`.
+- `response_format` DeepSeek hanya mendukung `json_object`, dan dokumentasinya
+  memperingatkan content bisa kosong. Parser karena itu berlapis: JSON utuh, JSON
+  terkubur, lalu regex `C[0-4]`, dengan fallback ke `reasoning_content`.
+- Anggaran token mulai 32 ribu. Kalau jawaban terpotong, naik ke 64 ribu lalu
+  128 ribu (batas ini sudah diuji diterima API). Sebelumnya mulai 4 ribu dan soal
+  berat bisa kehabisan tempat sebelum jawaban keluar.
+- Label tidak pernah dipanen dari pikiran yang terpotong; kalau pikiran dipotong,
+  percobaan diulang dengan anggaran lebih besar.
+- Baris pertama dikirim sendirian lalu ditunggu (warm-up) supaya sisa baris
+  membayar harga cache hit. Diukur pada 6 baris dengan prompt sengaja didinginkan:
+  9.633 token miss dengan warm-up, 44.199 token miss tanpa warm-up.
+- Kursor polling memakai jumlah record, bukan indeks, karena baris selesai tidak
+  berurutan saat paralel.
+- Berkas sesi ditulis dengan `os.replace`, jadi tidak pernah setengah jadi.
+  Menghapus sesi menghapus berkasnya; artefak hasil di `runs/` tetap ada.
+- Job hanya hidup di memori. Saat server mulai, sesi batch yang tertinggal
+  ditandai `interrupted` supaya tidak tertulis "running" selamanya.
+- Definisi kelas hanya ada di `core/classifier.py` dan dikirim ke UI lewat
+  `/api/health`, jadi legenda tidak bisa menyimpang dari rubrik.
 
-  | cara kirim | input miss | input hit |
-  |---|---|---|
-  | 1 baris ditunggu, lalu 5 serentak | 9.633 | 34.560 |
-  | 6 serentak dari awal | **44.199** | **0** |
+## Keamanan
 
-  Artinya tanpa warm-up, run pertama (atau run pertama setelah prompt diubah)
-  membayar **seluruh** input di harga miss ($0,3/M) bukan hit ($0,006/M) — 50×
-  lebih mahal pada komponen input. Ini alasan knob "paralel" dihapus dari UI.
-- Retry pakai backoff `2**attempt + jitter` supaya request yang gagal tidak
-  mencoba ulang serempak.
+**App ini tanpa login.** Siapa pun yang bisa menjangkau portnya bisa memakai app
+dan membakar kredit API Anda, karena key ada di server. Karena itu:
+
+- Jalankan dengan `--host 127.0.0.1` seperti contoh di atas. Hanya komputer itu
+  yang bisa membuka.
+- Jangan memakai `--host 0.0.0.0` kecuali untuk uji di perangkat sendiri, dan
+  tutup lagi setelah selesai (selain menghentikan server, cabut juga aturan
+  firewall yang mungkin Anda tambahkan, misalnya `sudo ufw delete allow 8000/tcp`).
+- Jangan menaruh app ini di internet publik tanpa lapisan autentikasi di depannya.
