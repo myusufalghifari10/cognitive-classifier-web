@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from contextlib import asynccontextmanager
 import json
 import os
 import uuid
@@ -34,7 +35,37 @@ SESSIONS = ROOT / "data" / "sessions"
 SESSIONS.mkdir(parents=True, exist_ok=True)
 _session_lock = asyncio.Lock()
 
-app = FastAPI(title="Cognitive Classification — CoI")
+def _reconcile_interrupted() -> None:
+    """Tandai sesi batch yang tertinggal saat proses server mati.
+
+    Job hanya hidup di memori, jadi restart (termasuk saat mengubah kode) memutus
+    job yang sedang jalan. Tanpa rekonsiliasi, sesi tetap tertulis "running"
+    selamanya dan tidak ada cara melanjutkannya. Baris yang belum sempat ditulis
+    bisa dilanjutkan lewat POST /api/sessions/{id}/retry, karena retry juga
+    mengurus baris yang belum ada di predictions.
+    """
+    for path in SESSIONS.glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if (data.get("kind") or "chat") != "batch":
+            continue
+        if data.get("status") not in ("queued", "running", "cancelling"):
+            continue
+        data["status"] = "interrupted"
+        data["error"] = "server berhenti sebelum job selesai"
+        data["updated_at"] = _now()
+        _write_session(data)
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _reconcile_interrupted()
+    yield
+
+
+app = FastAPI(title="Cognitive Classification — CoI", lifespan=_lifespan)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 JOBS: dict[str, dict] = {}
@@ -252,6 +283,17 @@ async def api_cancel_job(job_id: str):
     return {"id": job_id, "status": "cancelling"}
 
 
+def _rows_to_redo(all_rows: list[dict], records: list[dict]) -> list[dict]:
+    """Baris yang perlu dikerjakan ulang: gagal diurai ATAU belum ada recordnya.
+
+    Yang kedua penting untuk job yang dihentikan atau terputus saat server mati:
+    barisnya tidak pernah ditulis, jadi bukan PARSE_FAIL, hanya tidak ada.
+    """
+    by_idx = {r["idx"]: r for r in records}
+    return [r for r in all_rows
+            if r["idx"] not in by_idx or by_idx[r["idx"]]["pred"] not in classifier.LABELS]
+
+
 @app.post("/api/sessions/{session_id}/retry")
 async def api_session_retry(session_id: str):
     """Ulangi baris yang gagal diurai (pred bukan C0..C4) tanpa mengunggah ulang CSV.
@@ -265,14 +307,11 @@ async def api_session_retry(session_id: str):
     job_dir = RUNS / data["job_id"]
     mode = data.get("mode") or "few"
     records = _load_batch_records(data["job_id"], mode)
-    failed = {r["idx"] for r in records if r["pred"] not in classifier.LABELS}
-    if not failed:
-        return {"retried": 0, "session_id": session_id, "total": data.get("total")}
     if any(j.get("session_id") == session_id and j["status"] in ("queued", "running", "cancelling")
            for j in JOBS.values()):
         raise HTTPException(409, "Job untuk sesi ini masih berjalan.")
 
-    rows = [r for r in batch.read_csv(job_dir / "input.csv") if r["idx"] in failed]
+    rows = _rows_to_redo(batch.read_csv(job_dir / "input.csv"), records)
     if not rows:
         return {"retried": 0, "session_id": session_id, "total": data.get("total")}
 

@@ -12,6 +12,7 @@ const state = {
   sessions: [],
   active: null,
   rows: [],
+  totalRows: 0,        // total baris CSV pada sesi yang sedang dibuka
   busy: false,
   poll: null,
   view: "chat",
@@ -273,6 +274,7 @@ async function openSession(id) {
 /** Tampilkan sesi hasil CSV: tabel + metrik + unduhan; lanjut polling kalau masih jalan. */
 function renderBatchSession(data) {
   state.rows = (data.records || []).slice().sort((a, b) => a.idx - b.idx);
+  state.totalRows = data.total || state.rows.length;
 
   $("#result-panel").classList.remove("hidden");
   $("#result-session").textContent = data.title || "";
@@ -359,9 +361,12 @@ async function tick() {
     }
     p.timer = setTimeout(tick, 900);
   } catch (err) {
+    // Job hilang dari memori (server restart) atau jaringan putus: jangan
+    // tinggalkan tombol bertuliskan "Hentikan" padahal tidak ada yang berjalan.
     $("#metrics").innerHTML =
-      `<div class="metric"><span>error</span><strong>polling gagal</strong></div>`;
-    $("#batch-start").disabled = false;
+      `<div class="metric"><span>status</span><strong>job terputus</strong></div>`;
+    setPhase("Job ini tidak bisa dilacak lagi. Pakai tombol lanjutkan untuk mengerjakan sisa baris.");
+    setRunState("idle");
     stopPoll();
     console.error(err);
   }
@@ -885,6 +890,7 @@ $("#batch-start").addEventListener("click", async () => {
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
 
     state.rows = [];
+    state.totalRows = data.total || 0;
     state.active = data.session_id;
     saveUiState();
     $("#result-body").innerHTML = "";
@@ -946,12 +952,15 @@ function syncWrong() {
 
 $("#only-wrong").addEventListener("change", rerenderRows);
 
-/** Tombol ulangi hanya muncul kalau ada baris yang gagal diurai. */
+/** Tombol lanjut muncul kalau ada baris gagal diurai atau baris yang belum
+    sempat dikerjakan (job dihentikan / server mati di tengah jalan). */
 function syncRetry() {
-  const n = state.rows.filter((r) => !state.labels.includes(r.pred)).length;
+  const bad = state.rows.filter((r) => !state.labels.includes(r.pred)).length;
+  const missing = Math.max(0, (state.totalRows || 0) - state.rows.length);
+  const n = bad + missing;
   const b = $("#retry-fail");
   b.classList.toggle("hidden", !n);
-  b.textContent = `Ulangi ${n} baris gagal`;
+  b.textContent = missing ? `Lanjutkan ${n} baris` : `Ulangi ${n} baris gagal`;
 }
 
 async function retryFailed() {
@@ -960,9 +969,9 @@ async function retryFailed() {
   try {
     const r = await api(`/api/sessions/${state.active}/retry`,
                         { method: "POST", body: "{}" });
-    if (!r.retried) { toast("Tidak ada baris gagal"); syncRetry(); return; }
+    if (!r.retried) { toast("Semua baris sudah selesai"); syncRetry(); return; }
     setRunState("running");
-    setPhase(`Mengulang ${r.retried} baris gagal, baris pertama ditunggu dulu`);
+    setPhase(`Mengerjakan ${r.retried} baris, baris pertama ditunggu dulu`);
     $("#progress-wrap").classList.remove("hidden");
     setProgress(0, r.retried);
     startPoll(r.session_id, r.job_id, 0, { merge: true });
@@ -994,6 +1003,7 @@ function finishJob(data) {
   if (data.usage) chips.push(["estimasi biaya", "$" + data.usage.usd]);
   if (data.status === "error") chips.push(["status", "error"]);
   if (data.status === "cancelled") chips.push(["status", "dihentikan"]);
+  if (data.status === "interrupted") chips.push(["status", "terhenti"]);
 
   $("#metrics").innerHTML = chips
     .map(([k, v]) => `<div class="metric"><span>${k}</span><strong>${v}</strong></div>`)

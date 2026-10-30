@@ -151,6 +151,22 @@ class BatchStopTest(unittest.TestCase):
         self.assertEqual(saved[0]["pred"], "C3", "baris yang diulang memakai hasil baru")
 
 
+class RetrySelectionTest(unittest.TestCase):
+    """Baris yang diulang mencakup yang gagal diurai DAN yang belum punya record."""
+
+    def test_memilih_gagal_dan_belum_ada(self):
+        rows = [{"idx": i, "text": f"t{i}"} for i in range(4)]
+        records = [{"idx": 0, "pred": "C2"}, {"idx": 1, "pred": "PARSE_FAIL"}]
+        redo = webapp._rows_to_redo(rows, records)
+        self.assertEqual([r["idx"] for r in redo], [1, 2, 3],
+                         "idx 0 sudah benar, idx 1 gagal, idx 2-3 belum ada")
+
+    def test_tidak_ada_yang_perlu_diulang(self):
+        rows = [{"idx": i, "text": f"t{i}"} for i in range(2)]
+        records = [{"idx": 0, "pred": "C0"}, {"idx": 1, "pred": "C4"}]
+        self.assertEqual(webapp._rows_to_redo(rows, records), [])
+
+
 class ClassDefsTest(unittest.TestCase):
     """Legenda kelas hanya boleh punya satu sumber: classifier.CLASS_DEFS."""
 
