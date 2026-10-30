@@ -62,12 +62,6 @@
   --scrim: var(--shadow);
   --shadow: oklch(0.090 0.008 250 / 62%);
 
-  /* warna data kelas C0-C4 (encoding, bukan aksen) */
-  --c0: oklch(0.660 0.030 260);
-  --c1: oklch(0.800 0.140 82);
-  --c2: oklch(0.710 0.130 235);
-  --c3: oklch(0.720 0.160 300);
-  --c4: oklch(0.770 0.150 158);
 
   /* skala tipografi: 4 langkah, jarak antar langkah >= 2px (bukan increment 0.5px) */
   --t-xs: 12px;    /* meta, tabel, badge, label mikro */
@@ -152,11 +146,6 @@
 
   --shadow: oklch(0.320 0.020 151 / 18%);
 
-  --c0: oklch(0.480 0.030 260);
-  --c1: oklch(0.620 0.140 82);
-  --c2: oklch(0.520 0.140 235);
-  --c3: oklch(0.520 0.160 300);
-  --c4: oklch(0.520 0.130 158);
 }
 
 * { box-sizing: border-box; }
@@ -313,9 +302,8 @@ button { font: inherit; color: inherit; }
   padding: var(--space-3xs) var(--space-xs); border-radius: 999px;
   background: color-mix(in oklch, currentColor 20%, transparent);
 }
-.badge.C0 { color: var(--c0); } .badge.C1 { color: var(--c1); }
-.badge.C2 { color: var(--c2); } .badge.C3 { color: var(--c3); }
-.badge.C4 { color: var(--c4); } .badge.FAIL { color: var(--danger-strong); }
+.badge.C0, .badge.C1, .badge.C2, .badge.C3, .badge.C4 { color: var(--brand); }
+.badge.FAIL { color: var(--danger-strong); }
 .card-head .class-name { font-size: var(--t-sm); font-weight: 600; letter-spacing: -0.005em; }
 .reason { font-size: var(--t-md); line-height: 1.74; color: var(--fg-soft); }
 
