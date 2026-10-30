@@ -404,8 +404,14 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
 /* :not(.is-off) supaya tombol samar saat kotak kosong tidak ikut menghijau saat hover. */
 .send:not(.is-off):hover { transform: translateY(-1px); background: var(--brand-strong); }
 .send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-/* kotak kosong -> tombol samar; satu karakter cukup untuk memutihkannya */
-.send.is-off { background: var(--wash-3); color: var(--muted-fg); }
+/* Kotak kosong: hijau yang sama, hanya belum penuh. Ikon memakai --brand di atas
+   isian 10% (kontras 7.33:1 gelap, 4.78:1 terang), dan cincin tipis menjaga
+   bentuknya tetap terbaca. Dulu warnanya abu-abu, jadi terlihat mati. */
+.send.is-off {
+  background: var(--brand-soft);
+  color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand-line);
+}
 .send.is-off:hover { transform: none; }
 .send svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 /* Saat model bekerja, panah berubah jadi kotak berhenti (persegi terisi). */
