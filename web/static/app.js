@@ -539,13 +539,43 @@ function renderThread(messages) {
 function appendUser(text) {
   const wrap = document.createElement("div");
   wrap.className = "msg user";
-  wrap.innerHTML = `<div class="body"><div class="text"></div></div>`;
+  wrap.innerHTML = `<div class="body"><div class="text"></div>${actsHtml("user")}</div>`;
   wrap.querySelector(".text").textContent = text;
   threadInner.appendChild(wrap);
   showThread();
   thread.scrollTop = thread.scrollHeight;
   return wrap;
 }
+
+const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5H6.5A1.5 1.5 0 0 0 5 7v8.5"/></svg>';
+
+/** Satu tombol salin per pesan: teks yang dikirim, atau jawaban model. */
+function actsHtml(kind, hidden = false) {
+  const label = kind === "user" ? "Salin pesan" : "Salin jawaban";
+  return `<div class="msg-acts${hidden ? " hidden" : ""}"><button type="button"
+    class="act" data-copy="${kind}" title="${label}" aria-label="${label}">${COPY_SVG}</button></div>`;
+}
+
+/** Isi clipboard diambil dari DOM, jadi tombol tetap benar untuk riwayat lama:
+    tidak ada teks yang perlu disimpan ulang di sisi klien. */
+function copyPayload(msg, kind) {
+  if (kind === "user") return (msg.querySelector(".text")?.textContent || "").trim();
+  const card = msg.querySelector(".card");
+  if (!card) return "";
+  const pred = (card.querySelector(".badge")?.textContent || "").trim();
+  const name = (card.querySelector(".class-name")?.textContent || "").trim();
+  const reason = (card.querySelector(".reason")?.textContent || "").trim();
+  const head = [pred, name].filter(Boolean).join(" ");
+  return head + (reason ? `\n\n${reason}` : "");
+}
+
+threadInner.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-copy]");
+  if (!btn) return;
+  const msg = btn.closest(".msg");
+  const text = msg ? copyPayload(msg, btn.dataset.copy) : "";
+  if (text) await copyText(text);
+});
 
 const THINK_CHEV = '<svg class="chev-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const THINK_IC = '<svg class="think-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M5 6l1.5 1.5M19 6l-1.5 1.5"/><path d="M9 17h6M10 20h4"/><path d="M8.5 13.5a4.5 4.5 0 1 1 7 0c-.6.8-1 1.4-1 2.5h-5c0-1.1-.4-1.7-1-2.5z"/></svg>';
@@ -567,6 +597,7 @@ function cardHtml(rec, thinkText) {
 }
 
 function fillCard(card, rec, thinkText) {
+  card.closest(".body")?.querySelector(".msg-acts")?.classList.remove("hidden");
   card.querySelector(".reason").textContent =
     rec.reason || rec.error || "(model tidak memberi alasan)";
   const body = card.querySelector(".think-body");
@@ -581,6 +612,7 @@ function assistantShell() {
         <details class="think hidden"><summary>${THINK_IC}Proses berpikir${THINK_CHEV}</summary><div class="think-body"></div></details>
         <div class="pending"><span class="pulse"></span><span class="pending-text">menganalisis…</span></div>
       </div>
+      ${actsHtml("assistant", true)}
     </div>`;
   threadInner.appendChild(wrap);
   showThread();

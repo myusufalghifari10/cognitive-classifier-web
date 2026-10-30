@@ -293,6 +293,22 @@ button { font: inherit; color: inherit; }
 .msg.user .body { flex: 0 1 auto; max-width: 82%; display: flex; flex-direction: column; align-items: flex-end; }
 .msg .text, .reason { max-width: 72ch; }
 
+/* Aksi per pesan: salin teks yang dikirim atau jawaban model. Selalu terlihat,
+   bukan hanya saat hover, supaya bisa dijangkau keyboard dan layar sentuh. */
+.msg-acts { display: flex; gap: var(--space-2xs); margin-top: var(--space-2xs); }
+/* Glyph 15px di dalam kotak 28px, jadi digeser 6px supaya tepi ikon rata dengan
+   tepi teks/kartu di atasnya. */
+.msg.assistant .msg-acts { margin-left: -6px; }
+.msg.user .msg-acts { margin-right: -6px; }
+.act {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer;
+  color: var(--subtle-fg); transition: background .13s, color .13s;
+}
+.act svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.act:hover { color: var(--fg); background: var(--wash-2); }
+.act:active { transform: translateY(1px); }
+
 .msg.user .text {
   white-space: pre-wrap; overflow-wrap: anywhere;
   background: var(--panel-hi); border-radius: 18px 18px 6px 18px;
