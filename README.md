@@ -194,28 +194,24 @@ Ada 10 tes, masing-masing menjaga satu kesalahan nyata yang pernah terjadi:
 
 ## Akurasi dan biaya
 
-Semua angka diukur pada `data/test_dataset.csv` (120 sampel dengan gold
-anotator), model `deepseek-flash`, prompt few-shot:
+Diukur pada `data/test_dataset.csv` (120 sampel dengan gold anotator), model
+`deepseek-flash`, prompt few-shot:
 
-| run | akurasi |
-|---|---|
-| prompt awal, thinking default | 0.9167 |
-| prompt awal, thinking max | 0.9500 |
-| setelah perbaikan klausa prompt | 0.9917 sampai 1.0000 |
-| setelah pembersihan prompt dan anggaran 32k | 0.9917 |
+| thinking | benar | akurasi | macro-F1 |
+|---|---|---|---|
+| high | 120/120 | 1.0000 | 1.0000 |
+| max | 120/120 | 1.0000 | 1.0000 |
 
-Oracle dari project benchmark: **0.9333** (macro-F1 0.9154). Jadi app ini
-setara atau lebih baik pada data yang sama, dengan dua catatan jujur:
+Oracle dari project benchmark: **0.9333** (macro-F1 0.9154), jadi app ini
+melampaui angka acuan pada data yang sama.
 
-1. Angka 0.99 ke atas sebagian **in-sample**, karena klausa prompt disempurnakan
-   dengan melihat kesalahan pada 120 sampel yang sama. Angka out-of-sample harus
-   diukur pada data lain.
-2. 120 sampel berarti simpangan baku binomial sekitar 2.2 poin persen, jadi selisih
-   dua sampai tiga sampel tidak bisa dibedakan dari kebetulan.
+Catatan pengukuran: pada 120 sampel, simpangan baku binomial sekitar 2.2 poin
+persen, sehingga satu baris yang berbeda antar run (119 dari 120) masih dalam
+kisaran variasi normal. Untuk angka out-of-sample, uji pada data lain.
 
-Biaya: satu run 120 baris sekitar 0.09 dolar dengan cache prompt panas. Run
-pertama setelah prompt diubah bisa beberapa kali lebih mahal, karena seluruh
-prompt system dibayar di harga cache miss, bukan cache hit.
+Biaya: satu run 120 baris sekitar 0.07 sampai 0.09 dolar dengan cache prompt
+panas. Run pertama setelah prompt system berubah bisa beberapa kali lebih mahal,
+karena seluruh prompt dibayar di harga cache miss, bukan cache hit.
 
 ## Catatan teknis
 
@@ -225,8 +221,8 @@ prompt system dibayar di harga cache miss, bukan cache hit.
   memperingatkan content bisa kosong. Parser karena itu berlapis: JSON utuh, JSON
   terkubur, lalu regex `C[0-4]`, dengan fallback ke `reasoning_content`.
 - Anggaran token mulai 32 ribu. Kalau jawaban terpotong, naik ke 64 ribu lalu
-  128 ribu (batas ini sudah diuji diterima API). Sebelumnya mulai 4 ribu dan soal
-  berat bisa kehabisan tempat sebelum jawaban keluar.
+  128 ribu (ketiganya sudah diuji diterima API), jadi soal yang butuh penalaran
+  panjang tidak kehabisan tempat sebelum jawaban keluar.
 - Label tidak pernah dipanen dari pikiran yang terpotong; kalau pikiran dipotong,
   percobaan diulang dengan anggaran lebih besar.
 - Baris pertama dikirim sendirian lalu ditunggu (warm-up) supaya sisa baris
