@@ -43,6 +43,7 @@
   --brand-soft: oklch(0.780 0.130 151 / 10%);
   --brand-line: oklch(0.780 0.130 151 / 28%);
   --brand-deep: oklch(0.640 0.135 151);
+  --brand-ring: oklch(0.780 0.130 151 / 70%);
 
   /* aksen interaksi: satu hue (240) + turunannya */
   --accent: oklch(0.700 0.130 240);
@@ -302,7 +303,7 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
   background: var(--panel); border: 0; border-radius: var(--radius-lg);
   transition: background .15s, box-shadow .15s;
 }
-.composer-box:focus-within { box-shadow: inset 0 0 0 1px var(--ring); }
+.composer-box:focus-within { box-shadow: inset 0 0 0 1px var(--brand-ring); }
 
 /* Sesi kosong: sapaan + komposer duduk di tengah layar (gaya kimi.ai).
    auto-margin atas/bawah membagi ruang kosong rata; showThread() melepas
@@ -323,6 +324,8 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
   font: inherit; font-size: var(--t-md); line-height: 1.6;
   padding: var(--space-lg) var(--space-lg) var(--composer-clearance); min-height: 112px; max-height: 260px;
 }
+.composer textarea { scrollbar-width: none; }
+.composer textarea::-webkit-scrollbar { display: none; }
 .composer textarea::placeholder { color: var(--subtle-fg); }
 
 .send {
