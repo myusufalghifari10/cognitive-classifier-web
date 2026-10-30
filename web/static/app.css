@@ -902,8 +902,17 @@ button:disabled:hover { background: transparent; }
   }
   .shell:not(.collapsed) .scrim { display: block; opacity: 1; pointer-events: auto; }
 
-  /* Rail mengambang di kiri atas: judul tidak boleh tertimpa. */
-  .shell.collapsed .topbar { padding-left: 118px; }
+  /* Rail mengambang di kiri atas. Judul harus mulai setelah tepi kanannya:
+       16 (kiri) + 38 (logo) + 8 (gap rail) + 86 (pill: 2 ikon x 38 + gap 2 +
+       2 x padding 4) + 8 napas = 156px.
+     Angka lama 112 lupa bahwa #rail-new ikut tampil, jadi judul tertimpa 36px.
+     min-height: rail berakhir di 54px; tanpa ini isi thread mulai di 36px dan
+     menggulir di belakang tombol rail. */
+  .shell.collapsed .topbar {
+    padding-left: 156px;
+    min-height: 62px;
+    align-items: center;
+  }
   .thread, .batch-grid { padding-left: var(--space-lg); padding-right: var(--space-lg); }
 
   .nav-item, .session-item, .menu-item, .ctx-item { min-height: 44px; }
@@ -917,7 +926,6 @@ button:disabled:hover { background: transparent; }
   .topbar { padding: var(--space-sm) var(--space-md) var(--space-2xs); gap: var(--space-xs); }
   .topbar h1 { font-size: var(--t-sm); }
   .topbar p { display: none; }
-  .shell.collapsed .topbar { padding-left: 112px; }
   .theme-btn { width: 28px; height: 28px; }
 
   .thread { padding: var(--space-md) var(--space-sm) var(--space-md); }
