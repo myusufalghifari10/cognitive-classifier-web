@@ -160,7 +160,7 @@ DEFAULT_CAP = 64         # batas request paralel setelah baris warm-up
 
 async def run(rows: list[dict], out: Path, *, mode: str = "few", model: str = classifier.DEFAULT_MODEL,
               thinking: str | None = None, concurrency: int = DEFAULT_CAP,
-              max_tokens: int = 4096, on_record=None) -> dict:
+              max_tokens: int = 32768, on_record=None) -> dict:
     """Klasifikasi semua baris. Baris pertama dikirim SENDIRIAN lalu ditunggu:
     itu mengisi KV-cache prompt di server DeepSeek, jadi sisa baris membayar
     harga cache-hit, bukan cache-miss (input ~50x lebih murah). Setelah itu
@@ -211,7 +211,7 @@ async def _main() -> None:
     ap.add_argument("--thinking", choices=["off", "low", "high", "max"], default=None)
     ap.add_argument("--concurrency", type=int, default=DEFAULT_CAP,
                     help=f"batas request paralel setelah warm-up 1 baris (default {DEFAULT_CAP})")
-    ap.add_argument("--max-tokens", type=int, default=4096)
+    ap.add_argument("--max-tokens", type=int, default=32768)
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
 

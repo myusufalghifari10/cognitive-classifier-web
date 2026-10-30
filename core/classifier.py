@@ -65,7 +65,7 @@ def user_template() -> str:
 
 
 def make_client(base_url: str = DEFAULT_BASE_URL, key: str | None = None,
-                timeout: float = 300.0) -> httpx.AsyncClient:
+                timeout: float = 1800.0) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=base_url.rstrip("/") + "/",
         headers={"Authorization": f"Bearer {key or api_key()}"},
@@ -185,9 +185,13 @@ async def _call(client, messages, model, max_tokens, thinking, on_delta):
 
 
 async def classify(client, text: str, *, mode: str = "few", model: str = DEFAULT_MODEL,
-                   thinking: str | None = None, max_tokens: int = 4096,
-                   max_budget: int = 16384, on_delta=None) -> dict:
+                   thinking: str | None = None, max_tokens: int = 32768,
+                   max_budget: int = 131072, on_delta=None) -> dict:
     """Klasifikasi satu postingan.
+
+    Anggaran token mulai dari 32768. Bila jawaban terpotong (finish="length"),
+    anggaran naik dua kali lipat: 32768 -> 65536 -> 131072, jadi soal yang butuh
+    penalaran sangat panjang tidak berakhir sebagai jawaban gagal urai.
 
     `on_delta(kind, teks)` dipanggil per potongan saat streaming ("reasoning"/"content").
     Return dict dengan field identik `predictions_*.jsonl` project lama (tanpa idx/gold).
