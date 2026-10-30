@@ -547,7 +547,7 @@ function appendUser(text) {
   return wrap;
 }
 
-const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5H6.5A1.5 1.5 0 0 0 5 7v8.5"/></svg>';
+const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M15.5 4H6a2 2 0 0 0-2 2v9.5"/></svg>';
 
 /** Satu tombol salin per pesan: teks yang dikirim, atau jawaban model. */
 function actsHtml(kind, hidden = false) {

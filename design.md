@@ -186,8 +186,8 @@ Semua SVG digambar tangan, `stroke-width: 1.8`, `stroke-linecap: round`,
 `fill: none`. Satu pengecualian: centang 11px di kotak pilih (2.6) agar tetap
 terbaca. Tidak ada emoji sebagai ikon, tidak ada pustaka ikon campuran.
 
-Aksi per pesan memakai satu tombol ikon 28px (`.act`, glyph 15px) di bawah
-bubble: menyalin teks yang dikirim untuk pesan pengguna, dan menyalin
+Aksi per pesan memakai satu tombol ikon 30px (`.act`, glyph 20px dengan tinta
+sekitar 15.7px, sebanding dengan tinggi baris teks 16px) di bawah bubble: menyalin teks yang dikirim untuk pesan pengguna, dan menyalin
 `label + alasan` untuk jawaban model. Tombol selalu terlihat, bukan hanya saat
 hover, karena affordance tidak boleh bergantung pada hover. Isi clipboard
 dibaca dari DOM saat diklik, jadi riwayat lama ikut bisa disalin tanpa data

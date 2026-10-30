@@ -298,14 +298,14 @@ button { font: inherit; color: inherit; }
 .msg-acts { display: flex; gap: var(--space-2xs); margin-top: var(--space-2xs); }
 /* Glyph 15px di dalam kotak 28px, jadi digeser 6px supaya tepi ikon rata dengan
    tepi teks/kartu di atasnya. */
-.msg.assistant .msg-acts { margin-left: -6px; }
-.msg.user .msg-acts { margin-right: -6px; }
+.msg.assistant .msg-acts { margin-left: -7px; }
+.msg.user .msg-acts { margin-right: -7px; }
 .act {
-  width: 28px; height: 28px; display: grid; place-items: center;
+  width: 30px; height: 30px; display: grid; place-items: center;
   border: 0; border-radius: 8px; background: transparent; cursor: pointer;
   color: var(--subtle-fg); transition: background .13s, color .13s;
 }
-.act svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.act svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .act:hover { color: var(--fg); background: var(--wash-2); }
 .act:active { transform: translateY(1px); }
 
