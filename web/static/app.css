@@ -12,6 +12,11 @@
    pemisah. Border 1px hanya dipakai sebagai hairline di dalam tabel/menu.
    ========================================================================== */
 :root {
+  /* Mode gelap adalah bawaan. color-scheme memberi tahu browser supaya kontrol
+     bawaan (scrollbar Firefox, autofill, kursor) ikut gelap; tanpa ini, pindah
+     dari terang ke gelap meninggalkan scrollbar terang bawaan browser. */
+  color-scheme: dark;
+
   /* permukaan (netral diberi chroma tipis 0.004-0.014 pada hue 250, aksen yang sama) */
   --bg: oklch(0.181 0.008 250);          /* kanvas */
   --bg-deep: oklch(0.158 0.008 250);     /* sidebar, lebih dalam dari kanvas */
@@ -519,9 +524,12 @@ tbody tr { transition: background .12s; }
 .hidden { display: none !important; }
 /* Lambang punya dua berkas: hijau terang untuk kanvas gelap, hijau pekat untuk
    kertas terang. Satu elemen hanya menampilkan versi yang cocok. */
-.only-light { display: none; }
-:root[data-theme="light"] .only-dark { display: none; }
-:root[data-theme="light"] .only-light { display: inline; }
+/* !important disengaja: aturan aset (.logo-tile img, .empty-logo img) memakai
+   display: block dengan spesifisitas lebih tinggi daripada satu kelas, sehingga
+   tanpa ini kedua berkas lambang tampil bersamaan di mode gelap. */
+.only-light { display: none !important; }
+:root[data-theme="light"] .only-dark { display: none !important; }
+:root[data-theme="light"] .only-light { display: block !important; }
 
 /* Sakelar tema: dua tombol, matahari dan bulan. */
 .theme-switch {
