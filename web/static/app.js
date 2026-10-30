@@ -52,9 +52,34 @@ async function api(path, opts = {}) {
   return data;
 }
 
+/* ---------------- tema ---------------- */
+
+const THEME_KEY = "theme";
+
+/** Terapkan tema dan simpan pilihan. Atribut dipasang di <html> supaya seluruh
+    token CSS berganti; tombol matahari/bulan menandai pilihannya lewat
+    aria-pressed. */
+function applyTheme(name) {
+  const light = name === "light";
+  document.documentElement.dataset.theme = light ? "light" : "dark";
+  document.querySelectorAll("[data-theme-btn]").forEach((b) => {
+    b.setAttribute("aria-pressed", String(b.dataset.themeBtn === (light ? "light" : "dark")));
+  });
+  try {
+    localStorage.setItem(THEME_KEY, light ? "light" : "dark");
+  } catch (err) {
+    console.warn("gagal simpan tema:", err.message);
+  }
+}
+
+document.querySelectorAll("[data-theme-btn]").forEach((b) => {
+  b.addEventListener("click", () => applyTheme(b.dataset.themeBtn));
+});
+
 /* ---------------- boot ---------------- */
 
 async function boot() {
+  applyTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
   renderLegend();
   renderChips();
   setCollapsed(localStorage.getItem("sidebarCollapsed") === "1", false);

@@ -104,6 +104,61 @@
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", monospace;
 }
 
+/* ============ TEMA TERANG ============
+   Hanya token warna yang ditimpa; ukuran, radius, dan z-index tetap.
+   Kertas 0.968 (bukan #fff), tinta 0.205, netral bertint hue jangkar 151
+   dengan chroma 0.003-0.012 sesuai aturan Hallmark color.md.
+   Hijau diturunkan ke L 0.500 supaya 5.1:1 di atas kertas. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: oklch(0.968 0.005 151);
+  --bg-deep: oklch(0.945 0.007 151);
+  --panel: oklch(0.992 0.003 151);
+  --panel-hi: oklch(0.955 0.006 151);
+  --elevated: oklch(0.997 0.002 151);
+  --sunken: oklch(0.938 0.007 151);
+
+  --fg: oklch(0.205 0.010 151);
+  --fg-soft: oklch(0.360 0.012 151);
+  --muted-fg: oklch(0.500 0.012 151);
+  --subtle-fg: oklch(0.512 0.010 151);
+  --fg-inverse: oklch(0.985 0.004 151);
+
+  --wash-1: oklch(0.205 0.010 151 / 5%);
+  --wash-2: oklch(0.205 0.010 151 / 9%);
+  --wash-3: oklch(0.205 0.010 151 / 13%);
+  --wash-4: oklch(0.205 0.010 151 / 24%);
+  --hair-max: oklch(0.205 0.010 151 / 28%);
+
+  --brand: oklch(0.500 0.135 151);
+  --brand-strong: oklch(0.410 0.120 151);
+  --brand-soft: oklch(0.500 0.135 151 / 10%);
+  --brand-line: oklch(0.500 0.135 151 / 30%);
+  --brand-deep: oklch(0.640 0.140 151);
+  --brand-ring: oklch(0.500 0.135 151 / 55%);
+  --ring: oklch(0.500 0.135 151 / 65%);
+
+  /* aksen biru (centang menu, pill filter aktif) ikut digelapkan di kertas */
+  --accent: oklch(0.520 0.140 240);
+  --accent-fg: oklch(0.380 0.120 240);
+  --accent-soft: oklch(0.520 0.140 240 / 12%);
+  --accent-line: oklch(0.520 0.140 240 / 40%);
+
+  --mark: oklch(0.860 0.150 95 / 55%);
+  --danger: oklch(0.550 0.190 25);
+  --danger-strong: oklch(0.480 0.200 25);
+  --danger-soft: oklch(0.550 0.190 25 / 12%);
+
+  --shadow: oklch(0.320 0.020 151 / 18%);
+
+  --c0: oklch(0.480 0.030 260);
+  --c1: oklch(0.620 0.140 82);
+  --c2: oklch(0.520 0.140 235);
+  --c3: oklch(0.520 0.160 300);
+  --c4: oklch(0.520 0.130 158);
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -474,6 +529,25 @@ td.gold { font-family: var(--mono); color: var(--muted-fg); }
 tbody tr { transition: background .12s; }
 
 .hidden { display: none !important; }
+/* Lambang punya dua berkas: hijau terang untuk kanvas gelap, hijau pekat untuk
+   kertas terang. Satu elemen hanya menampilkan versi yang cocok. */
+.only-light { display: none; }
+:root[data-theme="light"] .only-dark { display: none; }
+:root[data-theme="light"] .only-light { display: inline; }
+
+/* Sakelar tema: dua tombol, matahari dan bulan. */
+.theme-switch {
+  display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px;
+  background: var(--wash-1); flex: none;
+}
+.theme-btn {
+  width: 30px; height: 30px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--muted-fg); display: grid; place-items: center; cursor: pointer;
+  transition: background .13s, color .13s;
+}
+.theme-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.theme-btn:hover { background: var(--wash-2); color: var(--fg); }
+.theme-btn[aria-pressed="true"] { background: var(--wash-3); color: var(--fg); }
 /* Scrollbar: tanpa border transparan supaya thumb mentok sampai ujung track. */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {

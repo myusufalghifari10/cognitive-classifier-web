@@ -66,6 +66,32 @@ grafik), bukan aksen. Hanya boleh muncul di badge dan legenda.
 Kontras terukur (WCAG, terhadap `--bg` atau `--panel`): `--fg` 17.47, `--fg-soft`
 12.40, `--muted-fg` 7.03, `--subtle-fg` 5.31, `--accent` 6.46. Jangan turunkan.
 
+## Dua tema
+
+Ada mode gelap dan mode terang. Nilai `:root` adalah mode gelap, dan
+`:root[data-theme="light"]` menimpa token warna saja; ukuran, radius, spacing,
+dan z-index tidak pernah berubah antar tema.
+
+Tema dipasang lewat atribut `data-theme` di elemen `<html>`. Skrip kecil di
+`<head>` memasang atribut itu sebelum halaman dilukis supaya tidak ada kedip
+gelap, lalu `applyTheme()` di `app.js` menyimpan pilihan ke `localStorage`
+dengan kunci `theme`. Bawaannya gelap. Sakelar matahari/bulan ada di sudut
+kanan atas topbar kedua halaman.
+
+Palet terang mengikuti aturan Hallmark `color.md`: kertas `oklch(0.968 0.005 151)`
+bukan `#fff`, tinta `oklch(0.205 0.010 151)`, netral bertint hue jangkar 151
+dengan chroma 0.003-0.012, dan hijau diturunkan ke L 0.500 karena hijau kanvas
+gelap (L 0.780) hanya 1.9:1 di atas kertas.
+
+Kontras terukur mode terang: `--fg` 16.31, `--fg-soft` 10.57, `--muted-fg` 5.45,
+`--subtle-fg` 4.74 (di atas sunken), `--brand` 5.14, centang di atas brand 5.40,
+`--danger` 4.88. Jangan turunkan.
+
+Lambang punya dua berkas karena warnanya harus ikut tema:
+`logo-n.svg` dan `logo-nalaraya.svg` (#74CF8C) untuk gelap, `logo-n-light.svg`
+dan `logo-nalaraya-light.svg` (#0F7E3D) untuk terang. Markup menaruh keduanya
+dengan kelas `.only-dark` dan `.only-light`; CSS memilih satu.
+
 ## Tipografi
 
 Satu famili UI (`--font`, system sans) plus `--mono` untuk angka dan label mikro.
