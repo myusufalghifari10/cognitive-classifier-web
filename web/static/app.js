@@ -86,7 +86,7 @@ async function boot() {
   applyTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
   renderLegend();
   renderChips();
-  setCollapsed(localStorage.getItem("sidebarCollapsed") === "1", false);
+  setCollapsed(isMobile() ? true : localStorage.getItem("sidebarCollapsed") === "1", false);
   try {
     const h = await api("/api/health");
     state.labels = h.labels || state.labels;
@@ -269,6 +269,7 @@ async function openSession(id) {
     switchView("chat");
     renderThread(data.messages || []);
   }
+  closeDrawer();          // di ponsel, memilih sesi langsung menutup laci
 }
 
 /** Tampilkan sesi hasil CSV: tabel + metrik + unduhan; lanjut polling kalau masih jalan. */
@@ -395,6 +396,7 @@ function newSession() {
   renderSessionList();
   switchView("chat");
   renderThread([]);
+  closeDrawer();
   input.focus();
 }
 
@@ -822,6 +824,7 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
     if (btn.dataset.view === "batch") newBatchView();
     switchView(btn.dataset.view);
+    closeDrawer();               // pilih menu = laci selesai tugasnya
   });
 });
 
@@ -1030,6 +1033,22 @@ function setCollapsed(v, remember = true) {
   $("#rail").classList.toggle("hidden", !state.collapsed);
   if (remember) localStorage.setItem("sidebarCollapsed", state.collapsed ? "1" : "0");
 }
+
+/* Di layar sempit sidebar menjadi laci: tertutup secara bawaan dan tidak
+   mengubah preferensi desktop yang tersimpan. */
+const MOBILE_Q = window.matchMedia("(max-width: 900px)");
+const isMobile = () => MOBILE_Q.matches;
+const closeDrawer = () => { if (isMobile()) setCollapsed(true, false); };
+
+$("#scrim").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isMobile() && !state.collapsed) closeDrawer();
+});
+MOBILE_Q.addEventListener("change", (e) => {
+  // Pindah lebar layar: ponsel mulai tertutup, desktop kembali ke pilihan tersimpan.
+  if (e.matches) setCollapsed(true, false);
+  else setCollapsed(localStorage.getItem("sidebarCollapsed") === "1", false);
+});
 
 $("#side-collapse").addEventListener("click", () => setCollapsed(true));
 $("#rail-open").addEventListener("click", () => setCollapsed(false));

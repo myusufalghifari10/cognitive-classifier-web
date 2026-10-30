@@ -153,6 +153,31 @@ bisa dihentikan dan harus kelihatan sedang berjalan.
   `POST /api/sessions/{id}/retry`; hasilnya digabung ke record lama per `idx`,
   jadi tabel, metrik, dan unduhan tetap utuh.
 
+## Responsif
+
+Dua breakpoint, mengikuti ambang yang lazim dipakai (Tailwind 640/768/1024,
+GOV.UK 48em): `900px` untuk laci sidebar, `640px` untuk ponsel.
+
+- **Sidebar jadi laci** di bawah 900px: keluar dari alur, meluncur dari kiri,
+  dengan tirai gelap di belakang. Tertutup secara bawaan di layar sempit, tetapi
+  pilihan desktop yang tersimpan tidak diubah. Menutup lewat pilihan menu, klik
+  tirai, atau Escape.
+- **Tinggi** memakai `100dvh` dengan `100vh` sebagai cadangan, jadi bilah alamat
+  ponsel tidak memotong komposer. Komposer menambah
+  `env(safe-area-inset-bottom)` dan `<meta viewport>` memakai
+  `viewport-fit=cover`, syarat agar inset itu tidak nol di iPhone.
+- **Target sentuh** nav, baris sesi, menu, dan tombol aksi minimal 44px di layar
+  sempit, jauh di atas ambang WCAG 2.5.8 (24 CSS px).
+- **Tabel** menyembunyikan kolom Latency di bawah 640px, bukan menggeser
+  mendatar, supaya header dan isi tidak pernah lepas posisi. Semua data tetap
+  ada di CSV/report yang diunduh.
+- **Rail** dikecilkan (pencarian pindah ke dalam laci) agar judul halaman tidak
+  tertimpa, dan topbar memakai padding kiri 112px sebagai ruang rail.
+
+Sumber pola: Bootstrap 5.2 responsive offcanvas (satu markup, dua perilaku),
+dokumentasi MDN `env()` untuk `safe-area-inset-*`, unit `dvh` (baseline 2022),
+dan WCAG 2.5.8 Target Size (Minimum).
+
 ## Motion
 
 Durasi 120-180 ms untuk state, 300-460 ms untuk geser panel. Easing

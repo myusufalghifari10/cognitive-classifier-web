@@ -861,3 +861,93 @@ button:disabled:hover { background: transparent; }
 }
 .toast-act:hover { background: var(--wash-3); }
 .toast-act:active { transform: translateY(1px); }
+
+/* ============================================================================
+   Responsif: tablet dan ponsel
+   Rujukan pola, bukan kode tempelan:
+   - Laci sidebar (off-canvas) dengan tirai: pola "responsive offcanvas" Bootstrap
+     5.2, yaitu satu markup dengan dua perilaku, laci di bawah breakpoint dan
+     panel biasa di atasnya. Tombol tutup, klik tirai, dan Escape mengikuti
+     daftar perilaku drawer yang sama.
+   - Target sentuh minimal 44px untuk nav dan aksi, di atas ambang WCAG 2.5.8
+     (24px) karena jari bukan tetikus.
+   - 100dvh dan env(safe-area-inset-bottom): dvh menghindari overflow 100vh di
+     peramban ponsel (baseline sejak 2022), env() menjaga komposer tidak
+     tertutup home indicator (dokumentasi MDN env()).
+   - Tabel: kolom paling tidak penting disembunyikan di layar sempit, bukan
+     digeser mendatar, supaya header dan isi tidak pernah lepas posisi.
+   ========================================================================== */
+
+/* Tinggi: 100vh tetap jadi cadangan; dvh menimpanya di peramban yang paham. */
+.shell { height: 100dvh; }
+.scrim { display: none; }
+
+@media (max-width: 900px) {
+  /* Sidebar keluar dari alur: meluncur dari kiri di atas konten. */
+  .sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: var(--z-menu);
+    width: min(300px, 86vw); height: 100dvh;
+    margin-left: 0; opacity: 1; pointer-events: auto;
+    transform: translateX(-100%);
+    transition: transform .28s cubic-bezier(.32, .72, 0, 1);
+    box-shadow: 12px 0 32px var(--shadow);
+  }
+  .shell:not(.collapsed) .sidebar { transform: none; }
+  .shell.collapsed .sidebar { margin-left: 0; opacity: 1; pointer-events: none; }
+
+  .scrim {
+    position: fixed; inset: 0; z-index: var(--z-rail);
+    background: oklch(0 0 0 / 45%);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+  }
+  .shell:not(.collapsed) .scrim { display: block; opacity: 1; pointer-events: auto; }
+
+  /* Rail mengambang di kiri atas: judul tidak boleh tertimpa. */
+  .shell.collapsed .topbar { padding-left: 118px; }
+  .thread, .batch-grid { padding-left: var(--space-lg); padding-right: var(--space-lg); }
+
+  .nav-item, .session-item, .menu-item, .ctx-item { min-height: 44px; }
+  .rail-logo, .rail-pill .icon-btn { width: 38px; height: 38px; }
+  /* Rail dikecilkan: pencarian tetap ada di dalam laci (tombol kaca pembesar di
+     kepala sidebar), jadi judul halaman punya ruang tanpa tertimpa. */
+  #rail-search { display: none; }
+}
+
+@media (max-width: 640px) {
+  .topbar { padding: var(--space-sm) var(--space-md) var(--space-2xs); gap: var(--space-xs); }
+  .topbar h1 { font-size: var(--t-sm); }
+  .topbar p { display: none; }
+  .shell.collapsed .topbar { padding-left: 112px; }
+  .theme-btn { width: 28px; height: 28px; }
+
+  .thread { padding: var(--space-md) var(--space-sm) var(--space-md); }
+  .thread-inner { gap: var(--space-lg); }
+  .empty { max-width: 100%; }
+  .empty-logo, .empty-logo img { width: 56px; height: 56px; }
+  .empty h2 { font-size: var(--t-md); }
+  .msg.user .body { max-width: 92%; }
+  .msg-acts .act { width: 34px; height: 34px; }
+
+  /* Komposer harus menghormati home indicator. */
+  .composer {
+    padding: var(--space-2xs) var(--space-sm)
+             calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+  }
+  .composer textarea { padding-left: var(--space-md); padding-right: var(--space-md); }
+
+  .batch-grid { padding: var(--space-md) var(--space-sm) var(--space-2xl); }
+  .panel { padding: var(--space-md); border-radius: 16px; }
+  .dropzone { padding: var(--space-lg) var(--space-md); }
+  .controls { flex-wrap: wrap; }
+
+  /* Tabel: buang kolom Latency supaya lima kolom tidak perlu digeser mendatar. */
+  .table-head th:nth-child(5), #result-table td:nth-child(5), .col-lat { display: none; }
+  .col-lat { width: 0; }   /* cadangan kalau peramban mengabaikan display:none pada <col> */
+  .col-idx { width: 40px; } .col-pred { width: 84px; } .col-gold { width: 68px; }
+  .table-scroll { max-height: 52vh; }
+
+  .modal-card { width: calc(100vw - 24px); max-height: 82dvh; }
+  .ctx { min-width: 180px; max-width: calc(100vw - 24px); }
+  .menu { min-width: 150px; }
+  .toast { width: calc(100vw - 24px); max-width: 420px; justify-content: center; text-align: center; }
+}
