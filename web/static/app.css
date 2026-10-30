@@ -349,11 +349,11 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
   display: inline-flex; align-items: center; gap: var(--space-2xs);
   padding: var(--space-xs) var(--space-sm); border: 0; border-radius: 999px;
   background: transparent; color: var(--muted-fg);
-  font-size: var(--t-xs); line-height: 1; cursor: pointer;
+  font-size: var(--t-sm); line-height: 1; cursor: pointer;
   transition: background .13s, color .13s;
 }
 .pill:hover, .pill[aria-expanded="true"] { background: var(--wash-2); color: var(--fg); }
-.pill .chev { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.8; opacity: 0.8; }
+.pill .chev { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; opacity: 0.8; }
 
 .menu {
   position: absolute; right: 0; bottom: calc(100% + 10px); z-index: var(--z-menu);
