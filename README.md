@@ -93,6 +93,13 @@ Reproduksi ulang:
 
 ```bash
 ~/myenv/bin/python3 -m core.batch --csv data/test_dataset.csv --out runs/verify --mode few --concurrency 8
+
+Tes (stdlib unittest, tanpa dependensi tambahan):
+
+```bash
+~/myenv/bin/python3 -m unittest discover -s tests -t . -v
+```
+
 ```
 
 ## Catatan teknis

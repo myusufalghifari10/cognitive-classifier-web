@@ -30,6 +30,17 @@ CLASS_NAMES = [
     "Resolusi",
 ]
 
+# Ringkasan rubrik `prompts/system_few_shot.md` (definisi + pembeda), dipadatkan.
+# Ini satu-satunya sumber: legenda di UI mengambil daftar ini lewat /api/health,
+# supaya teks legenda tidak bisa diam-diam menyimpang dari rubrik.
+CLASS_DEFS = [
+    "Sapaan, terima kasih, logistik, dukungan sosial. Tanpa isi materi.",
+    "Bertanya atau mengaku bingung. Ada percikan inkuiri, belum menyumbang jawaban.",
+    "Berbagi info, definisi, contoh, atau opini beralasan. Belum menyintesis.",
+    "Menyintesis, merefleksi, atau menyusun pembuktian langkah demi langkah.",
+    "Simpulan final yang menutup masalah; solusi dipertahankan atau diuji.",
+]
+
 ROOT = Path(__file__).resolve().parent.parent
 PROMPT_DIR = ROOT / "prompts"
 DEFAULT_BASE_URL = "https://api.deepseek.com"

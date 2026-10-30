@@ -389,6 +389,11 @@ details.think[open] .chev-ic { transform: rotate(180deg); }
 .send.is-off { background: var(--wash-3); color: var(--muted-fg); }
 .send.is-off:hover { transform: none; }
 .send svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* Saat model bekerja, panah berubah jadi kotak berhenti (persegi terisi). */
+.send .ic-stop { display: none; }
+.send.is-stop .ic-arrow { display: none; }
+.send.is-stop .ic-stop { display: block; }
+.send .ic-stop rect { fill: currentColor; stroke: none; }
 
 /* ---------- pill + popover (menggantikan <select> native) ---------- */
 .menu-wrap { position: relative; }
@@ -454,6 +459,12 @@ button.primary:hover:not(:disabled) { opacity: 0.88; }
 button.primary:disabled { opacity: 0.32; cursor: not-allowed; }
 
 .progress { margin-top: var(--space-lg); }
+
+/* Fase proses: warm-up satu baris ditunggu lebih dulu, jadi butuh penanda sendiri. */
+.phase {
+  display: flex; align-items: center; gap: var(--space-xs);
+  margin-top: var(--space-xs); font-size: var(--t-xs); color: var(--muted-fg);
+}
 .progress-head {
   display: flex; justify-content: space-between; gap: var(--space-sm);
   font-size: var(--t-xs); color: var(--muted-fg); margin-bottom: var(--space-xs); font-family: var(--mono);
@@ -475,6 +486,12 @@ button.primary:disabled { opacity: 0.32; cursor: not-allowed; }
 }
 .ghost:hover { color: var(--fg); background: var(--wash-3); }
 .ghost.disabled { opacity: 0.3; pointer-events: none; }
+button.ghost { border: 0; font: inherit; cursor: pointer; }
+
+/* Tombol berhenti memakai warna bahaya: tindakannya menghentikan kerja, bukan
+   tindakan utama yang aman. */
+.primary.is-stop { background: var(--danger); color: var(--fg-inverse); }
+.primary.is-stop:hover { background: var(--danger-strong); }
 
 .metrics { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-sm); }
 .metric { padding: var(--space-xs) var(--space-sm); border-radius: 12px; background: var(--wash-1); min-width: 96px; }

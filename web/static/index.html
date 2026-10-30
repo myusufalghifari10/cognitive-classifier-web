@@ -144,8 +144,9 @@ try {
             </div>
             <input type="hidden" id="chat-thinking" value="high">
           </div>
-          <button type="submit" class="send is-off" id="chat-send" aria-label="Kirim">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+          <button type="submit" class="send is-off" id="chat-send" aria-label="Kirim" aria-live="polite">
+            <svg class="ic-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+            <svg class="ic-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="8" height="8" rx="1.6"/></svg>
           </button>
         </div>
       </form>
@@ -200,6 +201,9 @@ try {
           <div class="progress hidden" id="progress-wrap">
             <div class="progress-head"><span id="progress-label">0 / 0</span><span id="progress-pct">0%</span></div>
             <div class="bar"><i id="progress-bar"></i></div>
+            <div class="phase hidden" id="progress-phase" role="status">
+              <span class="pulse"></span><span id="phase-text"></span>
+            </div>
           </div>
         </div>
 
@@ -207,6 +211,7 @@ try {
           <div class="result-head">
             <h3>Hasil <span id="result-session" class="result-session"></span></h3>
             <div class="downloads">
+              <button type="button" class="ghost hidden" id="retry-fail">Ulangi baris gagal</button>
               <a class="ghost" data-kind="csv" href="#">CSV</a>
               <a class="ghost" data-kind="report" href="#">Report</a>
               <a class="ghost" data-kind="png" href="#">Confusion</a>

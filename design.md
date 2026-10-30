@@ -132,6 +132,27 @@ seketika (tanpa transisi `outline`).
 Affordance tidak boleh bergantung pada hover saja: kebab sesi juga muncul lewat
 `:focus-within`, `:focus-visible`, dan `@media (hover: none)`.
 
+## Berhenti dan fase proses
+
+Pekerjaan model bisa memakan puluhan detik, jadi setiap pekerjaan panjang harus
+bisa dihentikan dan harus kelihatan sedang berjalan.
+
+- **Chat:** tombol kirim berganti peran saat model bekerja. Panah diganti kotak
+  terisi (`.send.is-stop`), klik memanggil `AbortController` dan server ikut
+  memutus permintaan ke DeepSeek. Jawaban yang dihentikan tidak dipersist dan
+  tidak tampil sebagai kartu galat: teks kecil "Dihentikan." saja.
+- **CSV:** tombol yang sama dua peran. `Mulai klasifikasi` menjadi
+  `Hentikan klasifikasi` (`--danger`), mengirim `POST /api/jobs/{id}/cancel`.
+  Baris yang sedang jalan dibatalkan, baris antre dilewati, hasil parsial tetap
+  ditulis supaya tidak ada kerja yang hilang. Statusnya `dihentikan`, dan unduhan
+  tetap aktif.
+- **Fase warm-up:** baris pertama sengaja dikirim sendirian untuk mengisi cache
+  prompt, dan itu terasa lama. Baris fase dengan titik `--brand` berdenyut
+  menjelaskan bahwa model sedang menyiapkan, bukan macet.
+- **Ulangi baris gagal:** baris `PARSE_FAIL` bisa diulang lewat
+  `POST /api/sessions/{id}/retry`; hasilnya digabung ke record lama per `idx`,
+  jadi tabel, metrik, dan unduhan tetap utuh.
+
 ## Motion
 
 Durasi 120-180 ms untuk state, 300-460 ms untuk geser panel. Easing

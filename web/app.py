@@ -6,13 +6,14 @@ Jalankan (bind localhost — app ini TANPA login, jangan diekspos ke jaringan):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -99,11 +100,11 @@ async def health():
         key_ok = False
     return {"ok": True, "model": classifier.DEFAULT_MODEL, "api_key": key_ok,
             "labels": classifier.LABELS, "class_names": classifier.CLASS_NAMES,
-            "max_rows": MAX_ROWS}
+            "class_defs": classifier.CLASS_DEFS, "max_rows": MAX_ROWS}
 
 
 @app.post("/api/classify")
-async def api_classify(payload: dict):
+async def api_classify(payload: dict, request: Request):
     """Klasifikasi satu postingan; hasil di-stream sebagai SSE (reasoning + content + result)."""
     text = (payload.get("text") or "").strip()
     if not text:
@@ -128,25 +129,37 @@ async def api_classify(payload: dict):
                 queue.put_nowait(("end", None, None))
 
         task = asyncio.create_task(worker())
-        yield sse("start", {"thinking": thinking})
-        while True:
-            kind, payload, extra = await queue.get()
-            if kind == "delta":
-                yield sse(payload, {"delta": extra})     # payload = "reasoning" | "content"
-            elif kind == "result":
-                yield sse("result", payload)
-            elif kind == "error":
-                yield sse("error", {"message": extra})
-            else:
-                break
-        await task
+        try:
+            yield sse("start", {"thinking": thinking})
+            while True:
+                if await request.is_disconnected():
+                    break            # tab ditutup / tombol hentikan: jangan lanjut membakar token
+                try:
+                    kind, payload, extra = await asyncio.wait_for(queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
+                if kind == "delta":
+                    yield sse(payload, {"delta": extra})  # payload = "reasoning" | "content"
+                elif kind == "result":
+                    yield sse("result", payload)
+                elif kind == "error":
+                    yield sse("error", {"message": extra})
+                else:
+                    break
+        finally:
+            # Klien pergi (abort/disconnect) -> batalkan permintaan ke DeepSeek.
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
 
     return StreamingResponse(events(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 async def _run_job(job: dict, rows: list[dict]) -> None:
-    job["status"] = "running"
+    # Batal bisa datang sebelum task ini sempat mulai; jangan tutupi statusnya.
+    job["status"] = "cancelling" if job.get("cancel") else "running"
 
     async def on_record(rec: dict, done: int, total: int) -> None:
         job["records"].append(rec)
@@ -154,15 +167,19 @@ async def _run_job(job: dict, rows: list[dict]) -> None:
 
     try:
         res = await batch.run(rows, Path(job["dir"]), mode=job["mode"],
-                              thinking=job["thinking"], on_record=on_record)
+                              thinking=job["thinking"], on_record=on_record,
+                              should_stop=lambda: bool(job.get("cancel")),
+                              base_records=job.get("base_records"))
         m = res["metrics"]
-        job.update(status="done", metrics=m, usage=res["usage"],
+        status = "cancelled" if res.get("cancelled") else "done"
+        job.update(status=status, metrics=m, usage=res["usage"],
                    elapsed_s=res["elapsed_s"], n_parse_fail=res["n_parse_fail"],
                    parallel=res["parallel"])
-        await _update_session(job["session_id"], status="done", usage=res["usage"],
+        await _update_session(job["session_id"], status=status, usage=res["usage"],
                               elapsed_s=res["elapsed_s"], n_parse_fail=res["n_parse_fail"],
                               parallel=res["parallel"], accuracy=m.get("accuracy"),
-                              macro_f1=m.get("macro_f1"), n_gold=m.get("n_gold", 0))
+                              macro_f1=m.get("macro_f1"), n_gold=m.get("n_gold", 0),
+                              total=job.get("session_total") or job["total"])
     except Exception as exc:                              # noqa: BLE001 — tampil di UI
         job.update(status="error", error=f"{type(exc).__name__}: {exc}")
         await _update_session(job["session_id"], status="error", error=str(exc)[:300])
@@ -217,7 +234,59 @@ async def api_job(job_id: str, offset: int = 0):
     return {"id": job_id, "status": job["status"], "done": job["done"], "total": job["total"],
             "records": fresh, "metrics": job["metrics"], "usage": job["usage"],
             "elapsed_s": job.get("elapsed_s"), "n_parse_fail": job.get("n_parse_fail"),
-            "error": job["error"], "mode": job["mode"]}
+            "error": job["error"], "mode": job["mode"],
+            "retry": bool(job.get("base_records")), "cancelling": job["status"] == "cancelling"}
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+async def api_cancel_job(job_id: str):
+    """Minta job berhenti. Baris yang sedang jalan diselesaikan, sisanya dilewati;
+    hasil parsial tetap ditulis supaya tidak ada kerja yang hilang."""
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job tidak ditemukan.")
+    if job["status"] in ("done", "error", "cancelled"):
+        return {"id": job_id, "status": job["status"]}
+    job["cancel"] = True
+    job["status"] = "cancelling"
+    return {"id": job_id, "status": "cancelling"}
+
+
+@app.post("/api/sessions/{session_id}/retry")
+async def api_session_retry(session_id: str):
+    """Ulangi baris yang gagal diurai (pred bukan C0..C4) tanpa mengunggah ulang CSV.
+
+    Hasil baru digabung ke record lama berdasarkan idx, lalu artefak ditulis ulang
+    di direktori job yang sama, jadi unduhan dan tabel tetap menampilkan semua baris.
+    """
+    data = _read_session(session_id)
+    if (data.get("kind") or "chat") != "batch":
+        raise HTTPException(400, "Session ini bukan hasil klasifikasi CSV.")
+    job_dir = RUNS / data["job_id"]
+    mode = data.get("mode") or "few"
+    records = _load_batch_records(data["job_id"], mode)
+    failed = {r["idx"] for r in records if r["pred"] not in classifier.LABELS}
+    if not failed:
+        return {"retried": 0, "session_id": session_id, "total": data.get("total")}
+    if any(j.get("session_id") == session_id and j["status"] in ("queued", "running", "cancelling")
+           for j in JOBS.values()):
+        raise HTTPException(409, "Job untuk sesi ini masih berjalan.")
+
+    rows = [r for r in batch.read_csv(job_dir / "input.csv") if r["idx"] in failed]
+    if not rows:
+        return {"retried": 0, "session_id": session_id, "total": data.get("total")}
+
+    job_id = uuid.uuid4().hex[:12]
+    job = {"id": job_id, "status": "queued", "total": len(rows), "done": 0, "records": [],
+           "mode": mode, "thinking": data.get("thinking"), "dir": str(job_dir),
+           "metrics": None, "usage": None, "error": None, "filename": data.get("title"),
+           "created": _now(), "session_id": session_id, "base_records": records,
+           "session_total": data.get("total")}
+    JOBS[job_id] = job
+    await _update_session(session_id, status="running", error=None)
+    asyncio.create_task(_run_job(job, rows))
+    return {"job_id": job_id, "session_id": session_id, "retried": len(rows),
+            "total": data.get("total")}
 
 
 @app.get("/api/sessions/{session_id}/download/{kind}")

@@ -5,18 +5,10 @@ const CLASS_NAMES = [
   "Eksplorasi", "Integrasi", "Resolusi",
 ];
 
-// Ringkasan rubrik `prompts/system_few_shot.md` (definisi + pembeda), dipadatkan.
-const CLASS_DEFS = [
-  "Sapaan, terima kasih, logistik, dukungan sosial. Tanpa isi materi.",
-  "Bertanya atau mengaku bingung. Ada percikan inkuiri, belum menyumbang jawaban.",
-  "Berbagi info, definisi, contoh, atau opini beralasan. Belum menyintesis.",
-  "Menyintesis, merefleksi, atau menyusun pembuktian langkah demi langkah.",
-  "Simpulan final yang menutup masalah; solusi dipertahankan atau diuji.",
-];
-
 const state = {
   labels: ["C0", "C1", "C2", "C3", "C4"],
   names: CLASS_NAMES,
+  defs: [],          // diisi dari /api/health (satu sumber: core/classifier.CLASS_DEFS)
   sessions: [],
   active: null,
   rows: [],
@@ -35,9 +27,20 @@ const input = $("#chat-input");
 const sendBtn = $("#chat-send");
 const thinkingSel = $("#chat-thinking");
 
+let chatAbort = null;        // AbortController untuk permintaan yang sedang jalan
+
 /** Tombol kirim samar selama kotak kosong, putih penuh begitu ada 1 karakter. */
 function syncSend() {
+  if (state.busy) return;    // saat bekerja, tombol memegang peran hentikan
   sendBtn.classList.toggle("is-off", input.value.length === 0);
+}
+
+/** Satu tombol dua peran: panah untuk mengirim, kotak terisi untuk menghentikan. */
+function setChatRunning(on) {
+  sendBtn.classList.toggle("is-stop", on);
+  sendBtn.classList.toggle("is-off", on ? false : input.value.length === 0);
+  sendBtn.setAttribute("aria-label", on ? "Hentikan" : "Kirim");
+  sendBtn.title = on ? "Hentikan" : "Kirim";
 }
 
 /* ---------------- api ---------------- */
@@ -87,6 +90,7 @@ async function boot() {
     const h = await api("/api/health");
     state.labels = h.labels || state.labels;
     state.names = h.class_names || CLASS_NAMES;
+    state.defs = h.class_defs || [];
     renderLegend();
   } catch {
     // biarkan nilai default lokal; daftar sesi tetap dicoba di bawah
@@ -122,7 +126,7 @@ function renderLegend() {
   $("#legend").innerHTML = state.labels.map((l, i) => `
     <li>
       <div class="legend-head"><code>${l}</code><span>${state.names[i] || ""}</span></div>
-      <p>${CLASS_DEFS[i] || ""}</p>
+      <p>${state.defs[i] || ""}</p>
     </li>`).join("");
 }
 
@@ -280,10 +284,17 @@ function renderBatchSession(data) {
   state.rows.forEach(appendRow);
   setProgress(data.records?.length || 0, data.total || 0);
 
-  if (data.status === "queued" || data.status === "running") {
+  if (["queued", "running", "cancelling"].includes(data.status)) {
+    setRunState("running");
+    setPhase(data.records?.length
+      ? `${data.records.length} dari ${data.total} selesai, sisanya berjalan paralel`
+      : "Menyiapkan model, baris pertama ditunggu dulu supaya sisanya murah");
     startPoll(data.id, data.job_id, state.rows.length);
     return;
   }
+  setPhase("");
+  setRunState("idle");
+  syncRetry();
   finishJob({ metrics: data.metrics, usage: data.usage, elapsed_s: data.elapsed_s,
               n_parse_fail: data.n_parse_fail, total: data.total, status: data.status,
               error: data.error, artifacts: data.artifacts });
@@ -296,9 +307,10 @@ function stopPoll() {
   state.poll = null;
 }
 
-function startPoll(sessionId, jobId, offset) {
+function startPoll(sessionId, jobId, offset, opts = {}) {
   stopPoll();
-  state.poll = { sessionId, jobId, offset, timer: null };
+  // merge: job ini hanya mengulang sebagian baris, jadi hasilnya digabung per idx
+  state.poll = { sessionId, jobId, offset, merge: !!opts.merge, timer: null };
   tick();
 }
 
@@ -311,19 +323,38 @@ async function tick() {
     if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
     if (state.poll !== p) return;          // user pindah sesi: hentikan render
 
-    for (const rec of data.records) {
-      p.offset += 1;
-      state.rows.push(rec);
-      appendRow(rec);
+    if (p.merge) {
+      for (const rec of data.records) {
+        p.offset += 1;
+        const i = state.rows.findIndex((r) => r.idx === rec.idx);
+        if (i >= 0) state.rows[i] = rec; else state.rows.push(rec);
+      }
+      rerenderRows();
+    } else {
+      for (const rec of data.records) {
+        p.offset += 1;
+        state.rows.push(rec);
+        appendRow(rec);
+      }
     }
     setProgress(data.done, data.total);
     syncWrong();
+    if (data.status === "cancelling") {
+      setPhase("Menghentikan setelah baris yang sedang jalan selesai");
+    } else if (data.done === 0) {
+      setPhase("Menyiapkan model, baris pertama ditunggu dulu supaya sisanya murah");
+    } else {
+      setPhase(`${data.done} dari ${data.total} selesai, sisanya berjalan paralel`);
+    }
 
-    if (data.status === "done" || data.status === "error") {
-      finishJob(data);
+    if (["done", "error", "cancelled"].includes(data.status)) {
       stopPoll();
+      setPhase("");
+      setRunState("idle");
       patchSession(p.sessionId, { status: data.status,
                                   accuracy: data.metrics?.accuracy ?? null });
+      if (p.merge) { await openSession(p.sessionId); return; }
+      finishJob(data);
       return;
     }
     p.timer = setTimeout(tick, 900);
@@ -584,7 +615,8 @@ async function sendChat(ev) {
   if (!text || state.busy) return;
 
   state.busy = true;
-  sendBtn.disabled = true;
+  chatAbort = new AbortController();
+  setChatRunning(true);
   input.value = "";
   input.style.height = "auto";
   syncSend();
@@ -624,6 +656,7 @@ async function sendChat(ev) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, thinking: thinkingSel.value || null }),
+      signal: chatAbort.signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
 
@@ -661,6 +694,13 @@ async function sendChat(ev) {
       }
     }
   } catch (err) {
+    if (err?.name === "AbortError") {
+      // Dihentikan pengguna: bukan galat, jadi jangan tampilkan kartu ERROR.
+      const pending = shell?.querySelector(".pending");
+      if (pending) pending.innerHTML = '<span class="pending-text">Dihentikan.</span>';
+      toast("Dihentikan");
+      return;
+    }
     const msg = String(err?.message || err);
     const card = shell?.querySelector(".card");
     if (card) {
@@ -678,13 +718,20 @@ async function sendChat(ev) {
     }
   } finally {
     state.busy = false;
-    sendBtn.disabled = false;
+    chatAbort = null;
+    setChatRunning(false);
     input.focus();
     thread.scrollTop = thread.scrollHeight;
   }
 }
 
 $("#composer").addEventListener("submit", sendChat);
+// Klik saat model bekerja tidak mengirim pesan, tetapi menghentikan permintaan.
+sendBtn.addEventListener("click", (e) => {
+  if (!state.busy) return;
+  e.preventDefault();
+  chatAbort?.abort();
+});
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) sendChat(e);
 });
@@ -717,7 +764,9 @@ function newBatchView() {
   $("#drop-title").textContent = "Letakkan CSV di sini atau klik";
   $("#drop-sub").textContent = "maks 1000 baris per run";
   $("#dropzone").classList.remove("over");
-  $("#batch-start").disabled = true;
+  setRunState("idle");
+  setPhase("");
+  $("#retry-fail").classList.add("hidden");
   $("#result-panel").classList.add("hidden");
   $("#progress-wrap").classList.add("hidden");
   $("#result-session").textContent = "";
@@ -761,9 +810,38 @@ function setFile(file) {
   $("#batch-start").disabled = false;
 }
 
+/** Tombol mulai berganti tugas saat job berjalan: satu tombol, dua peran. */
+function setRunState(mode) {
+  const b = $("#batch-start");
+  b.classList.toggle("is-stop", mode !== "idle");
+  b.textContent = mode === "idle" ? "Mulai klasifikasi"
+    : mode === "stopping" ? "Menghentikan…" : "Hentikan klasifikasi";
+  b.disabled = mode === "idle" ? !pickedFile : mode === "stopping";
+}
+
+/** Penanda fase: warm-up satu baris ditunggu lebih dulu, itu terasa lama. */
+function setPhase(text) {
+  $("#phase-text").textContent = text || "";
+  $("#progress-phase").classList.toggle("hidden", !text);
+}
+
+async function stopJob() {
+  const jobId = state.poll?.jobId;
+  if (!jobId) return;
+  setRunState("stopping");
+  try {
+    await api(`/api/jobs/${jobId}/cancel`, { method: "POST", body: "{}" });
+    setPhase("Menghentikan setelah baris yang sedang jalan selesai");
+  } catch (err) {
+    toast(`Gagal menghentikan: ${err.message}`);
+    setRunState("running");
+  }
+}
+
 $("#batch-start").addEventListener("click", async () => {
+  if (state.poll?.jobId) { await stopJob(); return; }   // sedang jalan -> hentikan
   if (!pickedFile) return;
-  $("#batch-start").disabled = true;
+  setRunState("running");
 
   const fd = new FormData();
   fd.append("file", pickedFile);
@@ -796,7 +874,8 @@ $("#batch-start").addEventListener("click", async () => {
     $("#result-panel").classList.remove("hidden");
     $("#metrics").innerHTML = `<div class="metric"><span>error</span><strong>gagal</strong></div>`;
     $("#result-body").innerHTML = `<tr><td colspan="5" class="reason">${err.message}</td></tr>`;
-    $("#batch-start").disabled = false;
+    setPhase("");
+    setRunState("idle");
   }
 });
 
@@ -835,8 +914,38 @@ function syncWrong() {
 
 $("#only-wrong").addEventListener("change", rerenderRows);
 
+/** Tombol ulangi hanya muncul kalau ada baris yang gagal diurai. */
+function syncRetry() {
+  const n = state.rows.filter((r) => !state.labels.includes(r.pred)).length;
+  const b = $("#retry-fail");
+  b.classList.toggle("hidden", !n);
+  b.textContent = `Ulangi ${n} baris gagal`;
+}
+
+async function retryFailed() {
+  if (!state.active) return;
+  $("#retry-fail").classList.add("hidden");
+  try {
+    const r = await api(`/api/sessions/${state.active}/retry`,
+                        { method: "POST", body: "{}" });
+    if (!r.retried) { toast("Tidak ada baris gagal"); syncRetry(); return; }
+    setRunState("running");
+    setPhase(`Mengulang ${r.retried} baris gagal, baris pertama ditunggu dulu`);
+    $("#progress-wrap").classList.remove("hidden");
+    setProgress(0, r.retried);
+    startPoll(r.session_id, r.job_id, 0, { merge: true });
+  } catch (err) {
+    toast(`Gagal mengulang: ${err.message}`);
+    syncRetry();
+  }
+}
+
+$("#retry-fail").addEventListener("click", retryFailed);
+
 function finishJob(data) {
-  $("#batch-start").disabled = false;
+  setPhase("");
+  setRunState("idle");
+  syncRetry();
   // Job selesai: urutkan tabel per idx (saat berjalan, baris muncul sesuai urutan selesai).
   state.rows.sort((a, b) => a.idx - b.idx);
   rerenderRows();
@@ -852,13 +961,16 @@ function finishJob(data) {
   if (data.elapsed_s) chips.push(["waktu", data.elapsed_s + "s"]);
   if (data.usage) chips.push(["estimasi biaya", "$" + data.usage.usd]);
   if (data.status === "error") chips.push(["status", "error"]);
+  if (data.status === "cancelled") chips.push(["status", "dihentikan"]);
 
   $("#metrics").innerHTML = chips
     .map(([k, v]) => `<div class="metric"><span>${k}</span><strong>${v}</strong></div>`)
     .join("");
 
   document.querySelectorAll(".downloads .ghost").forEach((a) => {
-    const known = data.artifacts ? data.artifacts[a.dataset.kind] : data.status === "done";
+    // Dibatalkan tetap menulis artefak parsial, jadi unduhan harus aktif.
+    const known = data.artifacts ? data.artifacts[a.dataset.kind]
+      : (data.status === "done" || data.status === "cancelled");
     a.classList.toggle("disabled", !known);
     if (known) a.href = `/api/sessions/${state.active}/download/${a.dataset.kind}`;
   });

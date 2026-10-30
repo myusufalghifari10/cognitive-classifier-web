@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import csv
 import json
 import time
@@ -95,6 +96,7 @@ def write_artifacts(records: list[dict], out: Path, *, mode: str, model: str,
     """Tulis predictions.jsonl, results.csv, report.txt (+png kalau ada gold)."""
     out.mkdir(parents=True, exist_ok=True)
     tag = f"{mode}shot"
+    elapsed_n = max(1, len(records))       # jangan bagi nol saat semua baris dibatalkan
 
     with open(out / f"predictions_{tag}.jsonl", "w", encoding="utf-8") as fh:
         for rec in records:
@@ -117,7 +119,7 @@ def write_artifacts(records: list[dict], out: Path, *, mode: str, model: str,
         if parallel:
             fh.write(f"Paralel        : 1 warm-up + sisa maks {parallel}\n")
         fh.write(f"Sampel         : {len(records)} (parse_fail={n_fail})\n")
-        fh.write(f"Total waktu    : {elapsed:.1f}s ({elapsed / len(records):.1f}s/sampel)\n")
+        fh.write(f"Total waktu    : {elapsed:.1f}s ({elapsed / elapsed_n:.1f}s/sampel)\n")
         u = usage_summary(records)
         if u:
             fh.write(f"Token          : in {u['input_miss']} (miss) + {u['input_hit']} (hit) · "
@@ -158,26 +160,65 @@ def write_artifacts(records: list[dict], out: Path, *, mode: str, model: str,
 DEFAULT_CAP = 64         # batas request paralel setelah baris warm-up
 
 
+async def _watch_stop(should_stop, inflight: set) -> None:
+    """Pantau permintaan berhenti selagi baris berjalan.
+
+    Cek di awal tiap baris saja tidak cukup: setelah warm-up, seluruh baris
+    dilepas serentak (dibatasi `cap`), jadi tanpa pengawas ini tombol hentikan
+    baru berpengaruh pada baris yang masih antre, sementara yang sudah jalan
+    tetap dibiarkan selesai.
+    """
+    while True:
+        await asyncio.sleep(0.2)
+        if should_stop():
+            for task in list(inflight):
+                task.cancel()
+            return
+
+
 async def run(rows: list[dict], out: Path, *, mode: str = "few", model: str = classifier.DEFAULT_MODEL,
               thinking: str | None = None, concurrency: int = DEFAULT_CAP,
-              max_tokens: int = 32768, on_record=None) -> dict:
+              max_tokens: int = 32768, on_record=None, should_stop=None,
+              base_records: list[dict] | None = None) -> dict:
     """Klasifikasi semua baris. Baris pertama dikirim SENDIRIAN lalu ditunggu:
     itu mengisi KV-cache prompt di server DeepSeek, jadi sisa baris membayar
     harga cache-hit, bukan cache-miss (input ~50x lebih murah). Setelah itu
     baris sisanya dilepas paralel, dibatasi `concurrency`.
+
+    `should_stop` dipanggil sebelum setiap baris dimulai; kalau mengembalikan
+    True, baris yang belum jalan dilewati dan hasil parsial tetap ditulis.
+
+    `base_records` dipakai untuk mengulang baris gagal: hasil baru digabung ke
+    record lama berdasarkan idx, jadi artefak tetap berisi seluruh baris.
     """
     records: list[dict | None] = [None] * len(rows)
     done = 0
+    cancelled = False
+    inflight: set[asyncio.Task] = set()
     t0 = time.time()
     cap = max(1, min(int(concurrency or DEFAULT_CAP), len(rows) or 1))
     sem = asyncio.Semaphore(cap)
 
     async with classifier.make_client() as client:
         async def one(row: dict):
-            nonlocal done
+            nonlocal done, cancelled
+            if should_stop and should_stop():
+                cancelled = True
+                return None
             async with sem:
-                rec = await classifier.classify(client, row["text"], mode=mode, model=model,
-                                                thinking=thinking, max_tokens=max_tokens)
+                if should_stop and should_stop():
+                    cancelled = True
+                    return None
+                task = asyncio.current_task()
+                inflight.add(task)
+                try:
+                    rec = await classifier.classify(client, row["text"], mode=mode, model=model,
+                                                    thinking=thinking, max_tokens=max_tokens)
+                except asyncio.CancelledError:
+                    cancelled = True          # dihentikan pengguna, bukan galat
+                    raise
+                finally:
+                    inflight.discard(task)
             rec = {"idx": row["idx"], **rec}
             if row.get("gold"):
                 rec["gold"] = row["gold"]
@@ -187,18 +228,42 @@ async def run(rows: list[dict], out: Path, *, mode: str = "few", model: str = cl
                 await on_record(rec, done, len(rows))
             return rec
 
-        # 1) warm-up: satu request, ditunggu sampai selesai
-        await one(rows[0])
-        # 2) sisanya serentak (dibatasi cap)
-        await asyncio.gather(*(one(r) for r in rows[1:]))
+        watcher = asyncio.create_task(_watch_stop(should_stop, inflight)) if should_stop else None
+        try:
+            try:
+                # 1) warm-up: satu request, ditunggu sampai selesai
+                await one(rows[0])
+            except asyncio.CancelledError:
+                cancelled = True
+            else:
+                # 2) sisanya serentak (dibatasi cap). return_exceptions: pembatalan
+                # satu baris tidak boleh menjatuhkan seluruh batch.
+                await asyncio.gather(*(one(r) for r in rows[1:]), return_exceptions=True)
+        finally:
+            if watcher:
+                watcher.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await watcher
 
     elapsed = time.time() - t0
-    final = [r for r in records if r is not None]
+    fresh = [r for r in records if r is not None]
+    if len(fresh) < len(rows):
+        cancelled = True                 # ada baris yang tidak sempat jalan
+    if base_records:                     # ulang baris gagal: gabung per idx
+        merged = {r["idx"]: r for r in base_records}
+        merged.update({r["idx"]: r for r in fresh})
+        final = [merged[k] for k in sorted(merged)]
+    else:
+        final = fresh
+    if cancelled and not final:
+        return {"metrics": {"n_gold": 0}, "elapsed_s": round(elapsed, 1), "n": 0,
+                "usage": None, "parallel": cap, "n_parse_fail": 0, "cancelled": True}
     m = write_artifacts(final, out, mode=mode, model=model, thinking=thinking,
                         elapsed=elapsed, parallel=cap)
-    return {"metrics": m, "elapsed_s": round(elapsed, 1), "n": len(final),
+    return {"metrics": m, "elapsed_s": round(elapsed, 1), "n": len(fresh),
             "usage": usage_summary(final), "parallel": cap,
-            "n_parse_fail": sum(1 for r in final if r["pred"] not in classifier.LABELS)}
+            "n_parse_fail": sum(1 for r in final if r["pred"] not in classifier.LABELS),
+            "cancelled": cancelled}
 
 
 async def _main() -> None:
