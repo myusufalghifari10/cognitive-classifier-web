@@ -60,11 +60,12 @@ memakai `var()`.
 | `--danger` / `-strong` / `-soft` | hue 25 | satu-satunya warna bahaya |
 | `--scrim`, `--shadow` | hitam 55 % | overlay dan elevasi |
 
-Badge kelas `C0` sampai `C4` semuanya memakai hijau brand `--brand`, bukan
+Badge kelas `C0` sampai `C4` semuanya memakai hijau `--brand-strong`, bukan
 warna berbeda per kelas, karena warna sudah dipakai untuk identitas dan lima
 warna berbeda di satu layar membuat label kelas terbaca sebagai seri data.
 `C4` (hijau) sebelumnya juga hampir sama dengan brand sehingga maknanya
-bertabrakan. Badge `FAIL` tetap memakai `--danger-strong` karena itu status
+bertabrakan. Kontras teks badge 6.89:1 di tema gelap dan 5.79:1 di
+tema terang. Badge `FAIL` tetap memakai `--danger-strong` karena itu status
 galat, bukan kategori. Palet data `--c0` sampai `--c4` karena itu dihapus.
 
 Kontras terukur (WCAG, terhadap `--bg` atau `--panel`): `--fg` 17.47, `--fg-soft`
